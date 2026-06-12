@@ -825,72 +825,121 @@ public class PantallaJuego extends JFrame {
         }
 
         private BufferedImage renderNaveBoss() {
-            int w = ANCHO, h = 95;
+            int w = 460, h = 145;
             BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
             Graphics2D gx = img.createGraphics();
             gx.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            int cx = w / 2; // 230
 
-            // Casco principal
-            gx.setColor(new Color(38, 38, 52));
-            gx.fillRect(0, 22, w, 52);
-            // Sección central elevada
-            gx.setColor(new Color(55, 55, 72));
-            gx.fillRect(w/2 - 170, 10, 340, 74);
-            // Detalles internos del casco
-            gx.setColor(new Color(72, 72, 92));
-            gx.fillRect(w/2 - 80, 18, 160, 58);
+            // ── Alas exteriores (sweep hacia atrás/arriba) ─────────────────
+            gx.setColor(new Color(38, 16, 16));
+            gx.fillPolygon(new int[]{cx-230, cx-145, cx-105, cx-160},
+                           new int[]{55, 30, 55, 82}, 4);
+            gx.fillPolygon(new int[]{cx+230, cx+145, cx+105, cx+160},
+                           new int[]{55, 30, 55, 82}, 4);
 
-            // Motores izquierda y derecha
-            for (int ex : new int[]{0, w - 28}) {
-                gx.setColor(new Color(255, 95, 0, 190));
-                gx.fillOval(ex - 4, 32, 32, 28);
-                gx.setColor(new Color(255, 205, 80, 120));
-                gx.fillOval(ex, 38, 18, 16);
+            // ── Pods de motor en las alas exteriores ───────────────────────
+            for (int ex : new int[]{cx - 192, cx + 170}) {
+                gx.setPaint(new GradientPaint(ex, 38, new Color(58, 22, 22), ex + 22, 58, new Color(35, 12, 12)));
+                gx.fillOval(ex, 38, 44, 24);
+                // Glow del motor
+                gx.setPaint(new RadialGradientPaint(ex + 22, 30, 16,
+                    new float[]{0f, 1f}, new Color[]{new Color(255, 140, 0, 230), new Color(255, 60, 0, 0)}));
+                gx.fillOval(ex + 6, 18, 24, 24);
             }
 
-            // Torretas con cañones (a lo largo del casco)
-            int[] turrX = new int[10];
-            for (int i = 0; i < turrX.length; i++) turrX[i] = 45 + i * (w - 90) / 9;
-            for (int tx : turrX) {
-                gx.setColor(new Color(75, 28, 28));
-                gx.fillRect(tx - 14, 56, 28, 24);
-                gx.setColor(new Color(110, 38, 38));
-                gx.fillOval(tx - 16, 49, 32, 16);
-                gx.setColor(new Color(150, 55, 55));
-                gx.fillRect(tx - 4, 73, 8, 17);
+            // ── Alas internas (delta) ──────────────────────────────────────
+            gx.setPaint(new GradientPaint(cx - 160, 30, new Color(65, 25, 25), cx - 105, 75, new Color(42, 16, 16)));
+            gx.fillPolygon(new int[]{cx-105, cx-160, cx-130, cx-100},
+                           new int[]{32, 52, 78, 82}, 4);
+            gx.setPaint(new GradientPaint(cx + 105, 30, new Color(65, 25, 25), cx + 160, 75, new Color(42, 16, 16)));
+            gx.fillPolygon(new int[]{cx+105, cx+160, cx+130, cx+100},
+                           new int[]{32, 52, 78, 82}, 4);
+
+            // ── Cuerpo principal (octágono) ────────────────────────────────
+            int[] xb = {cx-58, cx-100, cx-100, cx-62, cx+62, cx+100, cx+100, cx+58};
+            int[] yb = {18,    35,     82,     108,   108,   82,     35,     18   };
+            gx.setPaint(new GradientPaint(cx, 18, new Color(78, 30, 30), cx, 108, new Color(44, 16, 16)));
+            gx.fillPolygon(xb, yb, 8);
+
+            // Detalle interior del casco
+            gx.setColor(new Color(62, 24, 24));
+            gx.fillRect(cx - 55, 45, 110, 45);
+            gx.setColor(new Color(72, 28, 28));
+            gx.fillRect(cx - 35, 50, 70, 35);
+
+            // ── Superestructura / puente ───────────────────────────────────
+            gx.setPaint(new GradientPaint(cx, 5, new Color(105, 42, 42), cx, 38, new Color(70, 26, 26)));
+            gx.fillPolygon(new int[]{cx-32, cx+32, cx+24, cx-24},
+                           new int[]{5, 5, 38, 38}, 4);
+            // Torre de mando
+            gx.setPaint(new GradientPaint(cx - 12, 0, new Color(130, 52, 52), cx + 12, 8, new Color(88, 34, 34)));
+            gx.fillRect(cx - 12, 0, 24, 8);
+
+            // ── Ventana de mando (cockpit) ─────────────────────────────────
+            gx.setPaint(new GradientPaint(cx - 18, 10, new Color(120, 195, 255, 220), cx + 18, 32, new Color(38, 78, 180, 190)));
+            gx.fillOval(cx - 18, 10, 36, 24);
+            gx.setColor(new Color(160, 220, 255, 90));
+            gx.fillOval(cx - 10, 12, 14, 10);
+
+            // ── Cañones secundarios ────────────────────────────────────────
+            for (int tx : new int[]{cx - 52, cx - 18, cx + 18, cx + 52}) {
+                gx.setColor(new Color(55, 20, 20));
+                gx.fillRect(tx - 8, 86, 16, 20);
+                gx.setColor(new Color(80, 30, 30));
+                gx.fillOval(tx - 10, 80, 20, 14);
+                gx.setColor(new Color(110, 42, 42));
+                gx.fillRect(tx - 4, 100, 8, 14);
             }
 
-            // Línea de acento rojo
-            gx.setColor(new Color(215, 28, 28, 210));
-            gx.setStroke(new BasicStroke(3.5f));
-            gx.drawLine(0, 48, w, 48);
+            // ── Cañón central principal ─────────────────────────────────────
+            gx.setColor(new Color(48, 18, 18));
+            gx.fillRect(cx - 12, 100, 24, 26);
+            gx.setColor(new Color(72, 28, 28));
+            gx.fillRect(cx - 8, 94, 16, 12);
+            gx.setColor(new Color(100, 38, 38));
+            gx.fillRect(cx - 5, 90, 10, 8);
 
-            // Ventanas/luces
-            for (int lx = 55; lx < w - 40; lx += 30) {
-                gx.setColor(new Color(255, 215, 140, 175));
-                gx.fillRect(lx, 30, 9, 5);
-            }
-
-            // Contorno
-            gx.setColor(new Color(95, 95, 112, 155));
+            // ── Líneas de energía / acento rojo ───────────────────────────
+            gx.setColor(new Color(220, 32, 32, 215));
+            gx.setStroke(new BasicStroke(2.5f));
+            gx.drawLine(cx - 90, 60, cx + 90, 60);
+            gx.setColor(new Color(220, 32, 32, 130));
             gx.setStroke(new BasicStroke(1.5f));
-            gx.drawRect(0, 22, w - 1, 52);
-            gx.drawRect(w/2 - 170, 10, 340, 74);
+            gx.drawLine(cx - 60, 38, cx + 60, 38);
+            gx.drawLine(cx - 42, 90, cx + 42, 90);
+
+            // ── Luces de posición ─────────────────────────────────────────
+            for (int lx = cx - 62; lx <= cx + 62; lx += 22) {
+                gx.setColor(new Color(255, 218, 130, 175));
+                gx.fillOval(lx - 4, 50, 8, 5);
+            }
+
+            // ── Motores centrales traseros (glow arriba) ───────────────────
+            int[] motorX = {cx - 30, cx, cx + 30};
+            float[] radios = {10f, 14f, 10f};
+            for (int i = 0; i < motorX.length; i++) {
+                gx.setPaint(new RadialGradientPaint(motorX[i], 20, radios[i],
+                    new float[]{0f, 0.5f, 1f},
+                    new Color[]{new Color(255, 225, 100, 245), new Color(255, 110, 0, 185), new Color(255, 50, 0, 0)}));
+                gx.fillOval(motorX[i] - (int)radios[i], 20 - (int)radios[i], (int)radios[i]*2, (int)radios[i]*2);
+            }
+
+            // ── Contorno del cuerpo ────────────────────────────────────────
+            gx.setColor(new Color(115, 48, 48, 165));
+            gx.setStroke(new BasicStroke(1.5f));
+            gx.drawPolygon(xb, yb, 8);
+
             gx.dispose();
             return img;
         }
 
         private void pintarNaveBoss(Graphics2D g2) {
             NaveBoss boss = ctrl.getNaveBoss();
-            if (boss == null) return;
-            int y = altToScreen(NaveBoss.ALTITUD) - imgNaveBoss.getHeight() / 2;
-            // Vibración cuando recibe daño (pequeño shake si bossExplosionTicks activo)
-            float alpha = boss.estaActiva() ? 1.0f : 0.0f;
-            if (alpha == 0) return;
-            Composite prev = g2.getComposite();
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
-            g2.drawImage(imgNaveBoss, 0, y, null);
-            g2.setComposite(prev);
+            if (boss == null || !boss.estaActiva()) return;
+            int sx = gameXToScreen(boss.getPosX()) - imgNaveBoss.getWidth() / 2;
+            int sy = altToScreen(NaveBoss.ALTITUD) - imgNaveBoss.getHeight() / 2;
+            g2.drawImage(imgNaveBoss, sx, sy, null);
         }
 
         private void pintarBarraVidaBoss(Graphics2D g2) {

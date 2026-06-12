@@ -235,7 +235,7 @@ public class ControladorJuego {
     }
 
     private int calcularVidaBoss() {
-        return 70 + (nivel.getNumero() / 10 - 1) * 40;
+        return 250 + (nivel.getNumero() / 10 - 1) * 60;
     }
 
     public void limpiarElementosActivos() {

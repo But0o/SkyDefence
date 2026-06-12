@@ -7,7 +7,7 @@ import java.util.Random;
 public class NaveBoss {
 
     public static final double ALTITUD          = 5600.0;
-    private static final int   FRECUENCIA_DISP  = 70;   // ticks entre salvas
+    private static final int   FRECUENCIA_DISP  = 70;
     private static final int   MISILES_POR_SALVA = 7;
 
     private int vida;
@@ -15,21 +15,30 @@ public class NaveBoss {
     private int ticksDisparo = 0;
     private boolean activa   = true;
 
+    private double posX = 500.0;
+    private double velX = 0.45;
+
     public NaveBoss(int vida) {
         this.vida    = vida;
         this.vidaMax = vida;
     }
 
-    /** Avanza un tick; devuelve los misiles que dispara esta actualización. */
     public List<Misil> tick(double velMisil, Random rand) {
         List<Misil> nuevos = new ArrayList<>();
         if (!activa) return nuevos;
+
+        // Movimiento horizontal oscilante
+        posX += velX;
+        if (posX > 780) { posX = 780; velX = -Math.abs(velX); }
+        if (posX < 220) { posX = 220; velX =  Math.abs(velX); }
+
         ticksDisparo++;
         if (ticksDisparo >= FRECUENCIA_DISP) {
             ticksDisparo = 0;
-            double paso = 1000.0 / (MISILES_POR_SALVA + 1);
-            for (int i = 1; i <= MISILES_POR_SALVA; i++) {
-                double x = paso * i + (rand.nextDouble() - 0.5) * paso * 0.55;
+            double espaciado = 120.0;
+            int mitad = MISILES_POR_SALVA / 2;
+            for (int i = -mitad; i <= mitad; i++) {
+                double x = posX + i * espaciado + (rand.nextDouble() - 0.5) * 35;
                 x = Math.max(20, Math.min(980, x));
                 int altDet = Misil.getAltitudDetonacionMin()
                         + rand.nextInt(Misil.getAltitudDetonacionMax() - Misil.getAltitudDetonacionMin() + 1);
@@ -45,6 +54,7 @@ public class NaveBoss {
     }
 
     public boolean estaActiva() { return activa; }
-    public int getVida()        { return vida; }
-    public int getVidaMax()     { return vidaMax; }
+    public int    getVida()     { return vida; }
+    public int    getVidaMax()  { return vidaMax; }
+    public double getPosX()     { return posX; }
 }
