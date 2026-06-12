@@ -5,7 +5,7 @@ public class Nivel {
     private static final double VELOCIDAD_BASE_DRON_DEFAULT = 5.0;
     private static final double VELOCIDAD_BASE_MISIL_DEFAULT = 50.0;
     private static final double FRECUENCIA_DISPARO_BASE_DEFAULT = 60.0;
-    private static final double INCREMENTO_POR_NIVEL = 0.15;
+    private static final double INCREMENTO_POR_NIVEL = 0.04;
 
     private int numero;
     private double velocidadBaseDron;
@@ -39,6 +39,26 @@ public class Nivel {
     public int getFrecuenciaDisparo() {
         int frecuencia = (int) (frecuenciaDisparoBase / calcularMultiplicador());
         return Math.max(1, frecuencia);
+    }
+
+    // +4 drones por cada grupo de 5 niveles (ej: niv 6 → 14, niv 11 → 18 ...)
+    public int getTotalDronesNivel() {
+        return 10 + 4 * ((numero - 1) / 5);
+    }
+
+    // Nivel jefe: cada múltiplo de 5 a partir de 20
+    public boolean esBossLevel() {
+        return numero >= 20 && numero % 5 == 0;
+    }
+
+    // +50 % de daño a partir del nivel 16
+    public double getMultiplicadorDanio() {
+        return numero >= 16 ? 1.50 : 1.0;
+    }
+
+    // +25 % en el radio de explosión a partir del nivel 16
+    public double getMultiplicadorRadio() {
+        return numero >= 16 ? 1.25 : 1.0;
     }
 
     public int getNumero() { return numero; }

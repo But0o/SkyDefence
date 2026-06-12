@@ -23,7 +23,7 @@ public class Jugador {
     }
 
     public void aumentarVidaExtra() {
-        this.vidas++;
+        if (this.vidas < 5) this.vidas++;
     }
 
     public int getPuntaje() { return puntaje; }

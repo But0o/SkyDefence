@@ -7,8 +7,12 @@ import java.util.Random;
 
 public class ControladorJuego {
 
-    public static final int PUNTOS_VIDA_EXTRA = 1000;
-    public static final int PUNTOS_SUPERAR_NIVEL = 300;
+    public static final int    PUNTOS_VIDA_EXTRA     = 1000;
+    public static final int    PUNTOS_SUPERAR_NIVEL  = 300;
+    public static final int    PUNTOS_DESTRUIR_DRON  = 100;
+    private static final double SEPARACION_MINIMA_DRON = 160.0;
+    private static final double RADIO_IMPACTO_BALA     = 55.0;
+    private static final int    COOLDOWN_BALA_TICKS    = 12;
 
     public enum Estado { EN_CURSO, NIVEL_SUPERADO, GAME_OVER }
 
@@ -16,8 +20,9 @@ public class ControladorJuego {
     private Nivel nivel;
     private Escuadron escuadron;
     private Avion avion;
-    private List<Dron> activosDrones;
-    private List<Misil> activosMisiles;
+    private List<Dron>        activosDrones;
+    private List<Misil>       activosMisiles;
+    private List<BalaJugador> balasJugador;
     private double velocidadDronActual;
     private double velocidadMisilActual;
     private double frecuenciaDisparoActual;
@@ -25,33 +30,54 @@ public class ControladorJuego {
     private Estado estado;
     private int ticksDesdeUltimoDisparo;
     private int puntosUltimaVidaExtra;
+    private int oleadaActual;
+    private int totalOleadas;
+    private int entreOleadasTicks;
+    private int cooldownBala;
+    private final int vidasIniciales;
     private Random random;
 
     public ControladorJuego(String nombreJugador, int vidasIniciales) {
+        this.vidasIniciales = vidasIniciales;
         this.jugador = new Jugador(nombreJugador, vidasIniciales);
         this.nivel = new Nivel(1);
-        this.escuadron = new Escuadron();
         this.avion = new Avion(500.0, 3000.0);
-        this.activosDrones = new ArrayList<>();
+        this.activosDrones  = new ArrayList<>();
         this.activosMisiles = new ArrayList<>();
+        this.balasJugador   = new ArrayList<>();
         this.estado = Estado.EN_CURSO;
         this.ticksDesdeUltimoDisparo = 0;
+        this.cooldownBala = 0;
         this.puntosUltimaVidaExtra = 0;
         this.random = new Random();
         actualizarVelocidades();
+        setupEscuadron();
     }
 
     public void iniciarJuego() {
-        this.jugador = new Jugador(jugador.getNombre(), jugador.getVidas());
+        this.jugador = new Jugador(jugador.getNombre(), vidasIniciales);
         this.nivel = new Nivel(1);
-        this.escuadron = new Escuadron();
         this.avion = new Avion(500.0, 3000.0);
-        this.activosDrones = new ArrayList<>();
+        this.activosDrones  = new ArrayList<>();
         this.activosMisiles = new ArrayList<>();
+        this.balasJugador   = new ArrayList<>();
         this.estado = Estado.EN_CURSO;
         this.ticksDesdeUltimoDisparo = 0;
+        this.cooldownBala = 0;
         this.puntosUltimaVidaExtra = 0;
         actualizarVelocidades();
+        setupEscuadron();
+    }
+
+    private void setupEscuadron() {
+        oleadaActual = 1;
+        if (nivel.esBossLevel()) {
+            totalOleadas = 5;
+            escuadron = new Escuadron(10);
+        } else {
+            totalOleadas = 1;
+            escuadron = new Escuadron(nivel.getTotalDronesNivel());
+        }
     }
 
     public void actualizarJuego() {
@@ -59,6 +85,7 @@ public class ControladorJuego {
         verificarGeneracionDron();
         procesarDisparosDrones();
         actualizarPosicionesObjetos();
+        procesarBalasJugador();
         verificarDetonacionesYImpacto();
         verificarEstadoJugador();
         verificarFinDeNivel();
@@ -66,8 +93,13 @@ public class ControladorJuego {
     }
 
     public void verificarGeneracionDron() {
-        if (escuadron.puedeGenerarMasDrones(activosDrones.size())) {
-            int dir = random.nextBoolean() ? Dron.IZQUIERDA_A_DERECHA : Dron.DERECHA_A_IZQUIERDA;
+        if (entreOleadasTicks > 0) { entreOleadasTicks--; return; }
+        if (!escuadron.puedeGenerarMasDrones(activosDrones.size())) return;
+        int    dir    = random.nextBoolean() ? Dron.IZQUIERDA_A_DERECHA : Dron.DERECHA_A_IZQUIERDA;
+        double spawnX = dir == Dron.IZQUIERDA_A_DERECHA ? 0.0 : 1000.0;
+        boolean bloqueado = activosDrones.stream()
+                .anyMatch(d -> Math.abs(d.getPosicionX() - spawnX) < SEPARACION_MINIMA_DRON);
+        if (!bloqueado) {
             Dron nuevoDron = new Dron(dir, velocidadDronActual);
             escuadron.registrarGeneracionDron(nuevoDron);
             activosDrones.add(nuevoDron);
@@ -86,32 +118,69 @@ public class ControladorJuego {
     }
 
     public void actualizarPosicionesObjetos() {
-        for (Dron dron : activosDrones) {
-            dron.mover();
-        }
-        for (Misil misil : activosMisiles) {
-            misil.mover();
-        }
+        for (Dron dron : activosDrones) dron.mover();
+        for (Misil misil : activosMisiles) misil.mover();
+        for (BalaJugador bala : balasJugador) bala.mover();
     }
 
-    public void verificarDetonacionesYImpacto() {
-        for (Misil misil : activosMisiles) {
-            if (misil.haExplotado()) {
-                double distancia = misil.calcularDistanciaA(avion);
-                calcularDanio(distancia);
+    public boolean dispararBala() {
+        if (cooldownBala > 0) return false;
+        balasJugador.add(new BalaJugador(avion.getPosicionX(), avion.getAltitud()));
+        cooldownBala = COOLDOWN_BALA_TICKS;
+        return true;
+    }
+
+    public void procesarBalasJugador() {
+        if (cooldownBala > 0) cooldownBala--;
+        for (BalaJugador bala : balasJugador) {
+            if (!bala.estaActiva()) continue;
+            for (Dron dron : activosDrones) {
+                if (!dron.estaActivo()) continue;
+                double dx = bala.getPosicionX() - dron.getPosicionX();
+                double dy = bala.getPosicionY() - dron.getPosicionY();
+                if (Math.sqrt(dx * dx + dy * dy) < RADIO_IMPACTO_BALA) {
+                    dron.destruir();
+                    bala.desactivar();
+                    jugador.sumarPuntos(PUNTOS_DESTRUIR_DRON);
+                    verificarVidaExtra();
+                    break;
+                }
             }
         }
     }
 
+    // Ancho y alto del área de juego en píxeles (deben coincidir con PantallaJuego)
+    private static final double PANTALLA_PX_X   = 900.0;
+    private static final double PANTALLA_PX_Y   = 545.0;
+    private static final double RANGO_JUEGO_X   = 1000.0;
+    private static final double RANGO_ALTITUD   = 5000.0;
+
+    public void verificarDetonacionesYImpacto() {
+        for (Misil misil : activosMisiles) {
+            if (misil.haExplotado()) {
+                // Convertir a píxeles de pantalla para que los umbrales sean intuitivos
+                double dx = Math.abs(misil.getPosicionX() - avion.getPosicionX());
+                double dy = Math.abs(misil.getAltitudDetonacion() - avion.getAltitud());
+                double screenDx = dx * PANTALLA_PX_X / RANGO_JUEGO_X;
+                double screenDy = dy * PANTALLA_PX_Y / RANGO_ALTITUD;
+                double distPx = Math.sqrt(screenDx * screenDx + screenDy * screenDy);
+                calcularDanio(distPx);
+            }
+        }
+    }
+
+    // distancia en píxeles de pantalla
     public void calcularDanio(double distancia) {
-        if (distancia > 150) {
+        double radio = nivel.getMultiplicadorRadio();
+        double danio = nivel.getMultiplicadorDanio();
+        if (distancia > 380 * radio) {
             jugador.sumarPuntos(40);
             verificarVidaExtra();
-        } else if (distancia >= 80) {
+        } else if (distancia >= 200 * radio) {
             jugador.sumarPuntos(20);
-            evaluarConsecuenciasImpacto(20);
-        } else if (distancia >= 20) {
-            evaluarConsecuenciasImpacto(40);
+            evaluarConsecuenciasImpacto((int)(20 * danio));
+        } else if (distancia >= 80 * radio) {
+            evaluarConsecuenciasImpacto((int)(40 * danio));
         } else {
             jugador.perderVida();
             avion.reiniciarEnergia();
@@ -121,6 +190,10 @@ public class ControladorJuego {
 
     public void evaluarConsecuenciasImpacto(int porcentajeDanio) {
         avion.recibirDanio(porcentajeDanio);
+        if (avion.getEnergia() <= 0) {
+            jugador.perderVida();
+            avion.reiniciarEnergia();
+        }
         verificarVidaExtra();
     }
 
@@ -134,25 +207,36 @@ public class ControladorJuego {
         if (estado != Estado.EN_CURSO) return;
         boolean todosMisilesExplotados = activosMisiles.stream().allMatch(Misil::haExplotado);
         if (escuadron.escuadronTerminado() && todosMisilesExplotados) {
-            jugador.sumarPuntos(PUNTOS_SUPERAR_NIVEL);
-            estado = Estado.NIVEL_SUPERADO;
+            if (oleadaActual < totalOleadas) {
+                oleadaActual++;
+                escuadron = new Escuadron(10);
+                activosDrones.clear();
+                ticksDesdeUltimoDisparo = 0;
+                entreOleadasTicks = 240; // ~2 s de pausa antes de la siguiente oleada
+            } else {
+                jugador.sumarPuntos(PUNTOS_SUPERAR_NIVEL);
+                estado = Estado.NIVEL_SUPERADO;
+            }
         }
     }
 
     public void limpiarElementosActivos() {
         activosDrones.removeIf(d -> !d.estaActivo());
         activosMisiles.removeIf(Misil::haExplotado);
+        balasJugador.removeIf(b -> !b.estaActiva());
     }
 
     public void avanzarNivel() {
         if (estado != Estado.NIVEL_SUPERADO) return;
         nivel.avanzarNivel();
-        escuadron = new Escuadron();
         activosDrones.clear();
         activosMisiles.clear();
+        balasJugador.clear();
+        cooldownBala = 0;
         ticksDesdeUltimoDisparo = 0;
         estado = Estado.EN_CURSO;
         actualizarVelocidades();
+        setupEscuadron();
     }
 
     private void actualizarVelocidades() {
@@ -174,12 +258,17 @@ public class ControladorJuego {
     public boolean juegoEnCurso() { return estado == Estado.EN_CURSO; }
     public boolean nivelSuperado() { return estado == Estado.NIVEL_SUPERADO; }
     public boolean gameOver() { return estado == Estado.GAME_OVER; }
+    public boolean esNivelBoss() { return nivel.esBossLevel(); }
 
     public Estado getEstado() { return estado; }
     public Jugador getJugador() { return jugador; }
     public Avion getAvion() { return avion; }
     public Nivel getNivel() { return nivel; }
     public Escuadron getEscuadron() { return escuadron; }
-    public List<Dron> getActivosDrones() { return activosDrones; }
-    public List<Misil> getActivosMisiles() { return activosMisiles; }
+    public List<Dron>        getActivosDrones()  { return activosDrones; }
+    public List<Misil>       getActivosMisiles() { return activosMisiles; }
+    public List<BalaJugador> getBalasJugador()   { return balasJugador; }
+    public int getOleadaActual()     { return oleadaActual; }
+    public int getTotalOleadas()     { return totalOleadas; }
+    public int getEntreOleadasTicks(){ return entreOleadasTicks; }
 }

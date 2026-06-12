@@ -73,6 +73,7 @@ public class PantallaInicio extends JFrame {
             int x        = (ANCHO - anchoBtn) / 2;
 
             JButton btnJugar        = crearBoton("►  JUGAR",          x, 280, anchoBtn, altoBtn);
+            btnJugar.addActionListener(e -> { PantallaInicio.this.dispose(); new PantallaJuego(); });
             JButton btnPersonalizar = crearBoton("✦  PERSONALIZAR",    x, 350, anchoBtn, altoBtn);
             btnPersonalizar.addActionListener(e -> { PantallaInicio.this.dispose(); new PantallaPersonalizacion(); });
             JButton btnSalir        = crearBoton("✕  SALIR",           x, 420, anchoBtn, altoBtn);
