@@ -123,12 +123,41 @@ public class PantallaJuego extends JFrame {
             }
         }
 
-        private static final int[][] COLORES_PLANETA = {
-            {80, 120, 255}, {200, 80, 50}, {80, 175, 100}, {160, 130, 90}, {60, 160, 210}
+        // ── Paletas de galaxias ──────────────────────────────────────────────
+        // [galaxia][color][R,G,B]
+        private static final int[][][] GALAXIA_PLANETAS = {
+            {{80,120,255},{200,80,50},{80,175,100},{160,130,90},{60,160,210}},     // 0 azul
+            {{180,70,255},{140,50,200},{220,90,255},{100,55,185},{200,140,255}},   // 1 púrpura
+            {{255,95,45}, {230,65,25},{255,155,75},{205,75,55}, {255,125,55}},    // 2 rojo
+            {{70,215,255},{95,255,235},{45,175,215},{125,240,255},{55,195,225}},   // 3 cian
+            {{255,210,75},{238,175,45},{255,228,95},{218,165,55},{248,198,85}},    // 4 dorado
         };
-        private static final int[][] COLORES_NEBULOSA = {
-            {150, 40, 200}, {30, 80, 200}, {200, 80, 150}
+        private static final int[][][] GALAXIA_NEBULOSAS = {
+            {{150,40,200},{30,80,200},{200,80,150}},    // 0
+            {{195,45,255},{145,28,218},{175,75,252}},   // 1
+            {{252,75,45},{218,95,28},{252,135,75}},     // 2
+            {{45,195,238},{75,252,228},{28,175,252}},   // 3
+            {{252,198,45},{238,168,28},{252,218,75}},   // 4
         };
+        // Gradiente de fondo: {topR,topG,topB, botR,botG,botB}
+        private static final int[][] GALAXIA_FONDO = {
+            {0,0,20,  0,4,32},     // 0 azul profundo
+            {8,0,22,  14,4,40},    // 1 índigo profundo
+            {22,4,0,  32,8,4},     // 2 rojo profundo
+            {0,8,28,  0,18,38},    // 3 cian profundo
+            {18,13,0, 28,18,4},    // 4 dorado profundo
+        };
+        // Color del título en la pantalla de transición
+        private static final int[][] GALAXIA_COLOR_TITULO = {
+            {100,180,255},{200,100,255},{255,120,80},{80,220,255},{255,215,80}
+        };
+        private static final String[] GALAXIA_NOMBRES = {
+            "GALAXIA ALFA","GALAXIA BETA","GALAXIA GAMMA","GALAXIA DELTA","GALAXIA OMEGA"
+        };
+
+        private int galaxiaActual            = 0;
+        private int galaxiaTransicionTicks   = 0;
+        private static final int TICKS_TRANS = 220;
 
         private void initObjEspaciales() {
             for (int i = 0; i < objEspaciales.length; i++) {
@@ -139,18 +168,37 @@ public class PantallaJuego extends JFrame {
                 boolean esPlaneta = i < 4;
                 o[8] = esPlaneta ? 0 : 1;
                 if (esPlaneta) {
-                    o[3] = 22 + rand.nextInt(32);   // radio 22-54
-                    int[] c = COLORES_PLANETA[rand.nextInt(COLORES_PLANETA.length)];
-                    o[4] = c[0]; o[5] = c[1]; o[6] = c[2];
-                    o[7] = 75 + rand.nextInt(55);   // alpha 75-130
+                    o[3] = 22 + rand.nextInt(32);
+                    colorearObjEspacial(o, true);
+                    o[7] = 75 + rand.nextInt(55);
                 } else {
-                    o[3] = 55 + rand.nextInt(65);   // radio 55-120
-                    int[] c = COLORES_NEBULOSA[rand.nextInt(COLORES_NEBULOSA.length)];
-                    o[4] = c[0]; o[5] = c[1]; o[6] = c[2];
-                    o[7] = 20 + rand.nextInt(25);   // alpha 20-45
+                    o[3] = 55 + rand.nextInt(65);
+                    colorearObjEspacial(o, false);
+                    o[7] = 20 + rand.nextInt(25);
                 }
                 imgObjEsp[i] = renderObjEspacial(o);
             }
+        }
+
+        private void colorearObjEspacial(float[] o, boolean esPlaneta) {
+            int g = Math.min(galaxiaActual, GALAXIA_PLANETAS.length - 1);
+            int[][] palette = esPlaneta ? GALAXIA_PLANETAS[g] : GALAXIA_NEBULOSAS[g];
+            int[] c = palette[rand.nextInt(palette.length)];
+            o[4] = c[0]; o[5] = c[1]; o[6] = c[2];
+        }
+
+        private void regenerarObjEspaciales() {
+            for (int i = 0; i < objEspaciales.length; i++) {
+                float[] o = objEspaciales[i];
+                boolean esPlaneta = ((int) o[8]) == 0;
+                colorearObjEspacial(o, esPlaneta);
+                imgObjEsp[i] = renderObjEspacial(o);
+            }
+        }
+
+        private int getGalaxia() {
+            return Math.min((ctrl.getNivel().getNumero() - 1) / 10,
+                            GALAXIA_FONDO.length - 1);
         }
 
         private BufferedImage renderObjEspacial(float[] o) {
@@ -386,6 +434,15 @@ public class PantallaJuego extends JFrame {
                 }
             }
 
+            // Detectar cambio de galaxia
+            int galNueva = getGalaxia();
+            if (galNueva != galaxiaActual) {
+                galaxiaActual = galNueva;
+                galaxiaTransicionTicks = TICKS_TRANS;
+                regenerarObjEspaciales();
+            }
+            if (galaxiaTransicionTicks > 0) galaxiaTransicionTicks--;
+
             repaint();
         }
 
@@ -481,6 +538,7 @@ public class PantallaJuego extends JFrame {
             pintarViñeta(g2);
 
             if (flashDanio > 0)                  pintarFlashDanio(g2);
+            if (galaxiaTransicionTicks > 0)      pintarMensajeGalaxia(g2);
             if (bossIntroActivo)                 pintarBossIntroOverlay(g2);
             if (ctrl.getEntreOleadasTicks() > 0) pintarMensajeOleada(g2);
             if (ctrl.nivelSuperado())            pintarOverlay(g2, false);
@@ -489,7 +547,9 @@ public class PantallaJuego extends JFrame {
         }
 
         private void pintarFondo(Graphics2D g2) {
-            g2.setPaint(new GradientPaint(0, 0, new Color(0, 0, 20), 0, ALTO, new Color(0, 4, 32)));
+            int g = Math.min(galaxiaActual, GALAXIA_FONDO.length - 1);
+            int[] c = GALAXIA_FONDO[g];
+            g2.setPaint(new GradientPaint(0, 0, new Color(c[0], c[1], c[2]), 0, ALTO, new Color(c[3], c[4], c[5])));
             g2.fillRect(0, 0, ANCHO, ALTO);
         }
 
@@ -651,11 +711,14 @@ public class PantallaJuego extends JFrame {
             g2.setFont(fBig); g2.setColor(VERDE);
             g2.drawString(String.format("%06d", jug.getPuntaje()), px, 48);
 
-            // ── VIDAS (mini aviones) ──────────────────────────────────────
+            // ── VIDAS (corazones) ─────────────────────────────────────────
             int vx = ANCHO - 165;
             g2.setFont(fLbl); g2.setColor(VERDE_DIM); g2.drawString("VIDAS", vx, 20);
-            for (int i = 0; i < Math.min(jug.getVidas(), 5); i++)
-                pintarMiniAvion(g2, vx + i * 28 + 10, 44, ConfiguracionSkins.skinAvion);
+            g2.setFont(new Font("Monospaced", Font.BOLD, 22));
+            g2.setColor(new Color(230, 60, 80));
+            StringBuilder hearts = new StringBuilder();
+            for (int i = 0; i < Math.min(jug.getVidas(), 5); i++) hearts.append("♥ ");
+            g2.drawString(hearts.toString().trim(), vx, 50);
 
             // ── Indicador de altitud (barra lateral derecha) ──────────────
             int bx = ANCHO - 20, bw = 8;
@@ -742,6 +805,50 @@ public class PantallaJuego extends JFrame {
                 g2.drawString(txt, p[0] - fm.stringWidth(txt) / 2, drawY);
                 g2.setComposite(prev);
             }
+        }
+
+        private void pintarMensajeGalaxia(Graphics2D g2) {
+            float prog  = 1f - (float) galaxiaTransicionTicks / TICKS_TRANS;
+            float alpha = prog < 0.18f ? prog / 0.18f
+                        : prog > 0.78f ? (1f - prog) / 0.22f
+                        : 1f;
+            Composite prev = g2.getComposite();
+
+            // Fondo oscuro
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha * 0.82f));
+            g2.setColor(Color.BLACK);
+            g2.fillRect(0, ALTO_HUD, ANCHO, ALTO - ALTO_HUD);
+
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+
+            int g = Math.min(galaxiaActual, GALAXIA_COLOR_TITULO.length - 1);
+            int[] ct = GALAXIA_COLOR_TITULO[g];
+            Color colorTitulo = new Color(ct[0], ct[1], ct[2]);
+
+            String nombre = galaxiaActual < GALAXIA_NOMBRES.length
+                    ? GALAXIA_NOMBRES[galaxiaActual] : "GALAXIA " + (galaxiaActual + 1);
+
+            g2.setFont(new Font("Monospaced", Font.BOLD, 44));
+            FontMetrics fm = g2.getFontMetrics();
+            int tx = (ANCHO - fm.stringWidth(nombre)) / 2;
+            int ty = ALTO / 2 - 5;
+
+            // Glow
+            for (int d = 5; d >= 1; d--) {
+                g2.setColor(new Color(ct[0], ct[1], ct[2], 13 * (6 - d)));
+                g2.drawString(nombre, tx - d, ty);
+                g2.drawString(nombre, tx + d, ty);
+            }
+            g2.setColor(colorTitulo);
+            g2.drawString(nombre, tx, ty);
+
+            g2.setFont(new Font("Monospaced", Font.PLAIN, 16));
+            FontMetrics fm2 = g2.getFontMetrics();
+            String sub = "NUEVA ZONA ESPACIAL DESCUBIERTA";
+            g2.setColor(new Color(180, 180, 200));
+            g2.drawString(sub, (ANCHO - fm2.stringWidth(sub)) / 2, ty + 44);
+
+            g2.setComposite(prev);
         }
 
         private void pintarFlashDanio(Graphics2D g2) {

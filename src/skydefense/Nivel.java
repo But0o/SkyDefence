@@ -48,7 +48,7 @@ public class Nivel {
 
     // Nivel jefe: cada múltiplo de 5 a partir de 20
     public boolean esBossLevel() {
-        return numero >= 20 && numero % 5 == 0;
+        return numero >= 10 && numero % 10 == 0;
     }
 
     // +50 % de daño a partir del nivel 16
