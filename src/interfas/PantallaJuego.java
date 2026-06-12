@@ -90,6 +90,7 @@ public class PantallaJuego extends JFrame {
             initObjEspaciales();
             initOverlays();
             imgNaveGigante = renderNaveGigante();
+            imgNaveBoss    = renderNaveBoss();
             vidasPrevias  = ctrl.getJugador().getVidas();
             energiaPrevia = ctrl.getAvion().getEnergia();
             bindKeys();
@@ -158,6 +159,10 @@ public class PantallaJuego extends JFrame {
         private int galaxiaActual            = 0;
         private int galaxiaTransicionTicks   = 0;
         private static final int TICKS_TRANS = 220;
+
+        // Nave boss
+        private int bossExplosionTicks   = 0;
+        private BufferedImage imgNaveBoss;
 
         private void initObjEspaciales() {
             for (int i = 0; i < objEspaciales.length; i++) {
@@ -400,6 +405,12 @@ public class PantallaJuego extends JFrame {
                         }
                     }
 
+                    // Explosión al matar la nave boss
+                    NaveBoss boss = ctrl.getNaveBoss();
+                    if (boss != null && !boss.estaActiva() && bossExplosionTicks == 0) {
+                        bossExplosionTicks = 90;
+                    }
+
                     // Detectar daño para flash
                     int vidasNow   = ctrl.getJugador().getVidas();
                     int energiaNow = ctrl.getAvion().getEnergia();
@@ -433,6 +444,9 @@ public class PantallaJuego extends JFrame {
                     overlayTicks = 0;
                 }
             }
+
+            // Explosión al matar la nave boss
+            if (bossExplosionTicks > 0) bossExplosionTicks--;
 
             // Detectar cambio de galaxia
             int galNueva = getGalaxia();
@@ -527,6 +541,7 @@ public class PantallaJuego extends JFrame {
             pintarEstrellas(g2);
             pintarCarrileroDrones(g2);
             pintarDrones(g2);
+            if (ctrl.getNaveBoss() != null) pintarNaveBoss(g2);
             pintarMisiles(g2);
             pintarBalas(g2);
             pintarExplosiones(g2);
@@ -537,6 +552,8 @@ public class PantallaJuego extends JFrame {
             pintarScanlines(g2);
             pintarViñeta(g2);
 
+            if (bossExplosionTicks > 0)          pintarExplosionBoss(g2);
+            if (ctrl.getNaveBoss() != null && ctrl.getNaveBoss().estaActiva()) pintarBarraVidaBoss(g2);
             if (flashDanio > 0)                  pintarFlashDanio(g2);
             if (galaxiaTransicionTicks > 0)      pintarMensajeGalaxia(g2);
             if (bossIntroActivo)                 pintarBossIntroOverlay(g2);
@@ -805,6 +822,126 @@ public class PantallaJuego extends JFrame {
                 g2.drawString(txt, p[0] - fm.stringWidth(txt) / 2, drawY);
                 g2.setComposite(prev);
             }
+        }
+
+        private BufferedImage renderNaveBoss() {
+            int w = ANCHO, h = 95;
+            BufferedImage img = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D gx = img.createGraphics();
+            gx.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            // Casco principal
+            gx.setColor(new Color(38, 38, 52));
+            gx.fillRect(0, 22, w, 52);
+            // Sección central elevada
+            gx.setColor(new Color(55, 55, 72));
+            gx.fillRect(w/2 - 170, 10, 340, 74);
+            // Detalles internos del casco
+            gx.setColor(new Color(72, 72, 92));
+            gx.fillRect(w/2 - 80, 18, 160, 58);
+
+            // Motores izquierda y derecha
+            for (int ex : new int[]{0, w - 28}) {
+                gx.setColor(new Color(255, 95, 0, 190));
+                gx.fillOval(ex - 4, 32, 32, 28);
+                gx.setColor(new Color(255, 205, 80, 120));
+                gx.fillOval(ex, 38, 18, 16);
+            }
+
+            // Torretas con cañones (a lo largo del casco)
+            int[] turrX = new int[10];
+            for (int i = 0; i < turrX.length; i++) turrX[i] = 45 + i * (w - 90) / 9;
+            for (int tx : turrX) {
+                gx.setColor(new Color(75, 28, 28));
+                gx.fillRect(tx - 14, 56, 28, 24);
+                gx.setColor(new Color(110, 38, 38));
+                gx.fillOval(tx - 16, 49, 32, 16);
+                gx.setColor(new Color(150, 55, 55));
+                gx.fillRect(tx - 4, 73, 8, 17);
+            }
+
+            // Línea de acento rojo
+            gx.setColor(new Color(215, 28, 28, 210));
+            gx.setStroke(new BasicStroke(3.5f));
+            gx.drawLine(0, 48, w, 48);
+
+            // Ventanas/luces
+            for (int lx = 55; lx < w - 40; lx += 30) {
+                gx.setColor(new Color(255, 215, 140, 175));
+                gx.fillRect(lx, 30, 9, 5);
+            }
+
+            // Contorno
+            gx.setColor(new Color(95, 95, 112, 155));
+            gx.setStroke(new BasicStroke(1.5f));
+            gx.drawRect(0, 22, w - 1, 52);
+            gx.drawRect(w/2 - 170, 10, 340, 74);
+            gx.dispose();
+            return img;
+        }
+
+        private void pintarNaveBoss(Graphics2D g2) {
+            NaveBoss boss = ctrl.getNaveBoss();
+            if (boss == null) return;
+            int y = altToScreen(NaveBoss.ALTITUD) - imgNaveBoss.getHeight() / 2;
+            // Vibración cuando recibe daño (pequeño shake si bossExplosionTicks activo)
+            float alpha = boss.estaActiva() ? 1.0f : 0.0f;
+            if (alpha == 0) return;
+            Composite prev = g2.getComposite();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+            g2.drawImage(imgNaveBoss, 0, y, null);
+            g2.setComposite(prev);
+        }
+
+        private void pintarBarraVidaBoss(Graphics2D g2) {
+            NaveBoss boss = ctrl.getNaveBoss();
+            if (boss == null) return;
+            float ratio = (float) boss.getVida() / boss.getVidaMax();
+            int barY = ALTO_HUD + 5, barH = 14;
+
+            g2.setColor(new Color(35, 0, 0, 210));
+            g2.fillRect(0, barY, ANCHO, barH);
+
+            Color bc = ratio > 0.5f ? new Color(215, 45, 45)
+                     : ratio > 0.25f ? new Color(255, 120, 30) : new Color(255, 200, 30);
+            int fw = (int)(ANCHO * ratio);
+            if (fw > 0) { g2.setColor(bc); g2.fillRect(0, barY, fw, barH); }
+
+            g2.setColor(new Color(200, 45, 45, 145));
+            g2.setStroke(new BasicStroke(1f));
+            g2.drawRect(0, barY, ANCHO - 1, barH);
+
+            g2.setFont(new Font("Monospaced", Font.BOLD, 10));
+            g2.setColor(Color.WHITE);
+            g2.drawString("NAVE BOSS  HP: " + boss.getVida() + "/" + boss.getVidaMax(), 10, barY + barH - 2);
+        }
+
+        private void pintarExplosionBoss(Graphics2D g2) {
+            float prog  = 1f - (float) bossExplosionTicks / 90f;
+            int   bossY = altToScreen(NaveBoss.ALTITUD);
+            Composite prev = g2.getComposite();
+
+            // Flash inicial que cubre toda la pantalla
+            if (prog < 0.18f) {
+                float a = (0.18f - prog) / 0.18f;
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, a * 0.85f));
+                g2.setColor(new Color(255, 200, 100));
+                g2.fillRect(0, ALTO_HUD, ANCHO, ALTO - ALTO_HUD);
+            }
+
+            // Anillos expansivos (5 desfasados)
+            for (int ring = 0; ring < 5; ring++) {
+                float rProg = Math.min(1f, prog + ring * 0.14f);
+                int   r     = (int)(rProg * 480);
+                float alpha = (1f - rProg) * (1f - prog) * 0.75f;
+                if (alpha <= 0) continue;
+                g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g2.setColor(new Color(255, 140 + ring * 18, ring * 25));
+                g2.setStroke(new BasicStroke(5f - ring * 0.6f));
+                g2.drawOval(ANCHO/2 - r, bossY - r/2, r * 2, r);
+                g2.setStroke(new BasicStroke(1f));
+            }
+            g2.setComposite(prev);
         }
 
         private void pintarMensajeGalaxia(Graphics2D g2) {

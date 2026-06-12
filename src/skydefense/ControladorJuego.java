@@ -34,6 +34,7 @@ public class ControladorJuego {
     private int totalOleadas;
     private int entreOleadasTicks;
     private int cooldownBala;
+    private NaveBoss naveBoss = null;
     private final int vidasIniciales;
     private Random random;
 
@@ -64,6 +65,7 @@ public class ControladorJuego {
         this.estado = Estado.EN_CURSO;
         this.ticksDesdeUltimoDisparo = 0;
         this.cooldownBala = 0;
+        this.naveBoss = null;
         this.puntosUltimaVidaExtra = 0;
         actualizarVelocidades();
         setupEscuadron();
@@ -86,6 +88,9 @@ public class ControladorJuego {
         procesarDisparosDrones();
         actualizarPosicionesObjetos();
         procesarBalasJugador();
+        if (naveBoss != null && naveBoss.estaActiva() && entreOleadasTicks == 0) {
+            activosMisiles.addAll(naveBoss.tick(velocidadMisilActual, random));
+        }
         verificarDetonacionesYImpacto();
         verificarEstadoJugador();
         verificarFinDeNivel();
@@ -173,13 +178,13 @@ public class ControladorJuego {
     public void calcularDanio(double distancia) {
         double radio = nivel.getMultiplicadorRadio();
         double danio = nivel.getMultiplicadorDanio();
-        if (distancia > 380 * radio) {
+        if (distancia > 200 * radio) {
             jugador.sumarPuntos(40);
             verificarVidaExtra();
-        } else if (distancia >= 200 * radio) {
+        } else if (distancia >= 110 * radio) {
             jugador.sumarPuntos(20);
             evaluarConsecuenciasImpacto((int)(20 * danio));
-        } else if (distancia >= 80 * radio) {
+        } else if (distancia >= 50 * radio) {
             evaluarConsecuenciasImpacto((int)(40 * danio));
         } else {
             jugador.perderVida();
@@ -209,20 +214,46 @@ public class ControladorJuego {
         if (escuadron.escuadronTerminado() && todosMisilesExplotados) {
             if (oleadaActual < totalOleadas) {
                 oleadaActual++;
-                escuadron = new Escuadron(10);
                 activosDrones.clear();
                 ticksDesdeUltimoDisparo = 0;
-                entreOleadasTicks = 240; // ~2 s de pausa antes de la siguiente oleada
+                entreOleadasTicks = 240;
+                // Última oleada de nivel boss → aparece la nave boss
+                if (nivel.esBossLevel() && oleadaActual == totalOleadas) {
+                    escuadron = new Escuadron(0);  // sin drones normales
+                    naveBoss  = new NaveBoss(calcularVidaBoss());
+                } else {
+                    escuadron = new Escuadron(10);
+                    naveBoss  = null;
+                }
             } else {
+                if (naveBoss != null && naveBoss.estaActiva()) return; // boss aún vivo
                 jugador.sumarPuntos(PUNTOS_SUPERAR_NIVEL);
-                estado = Estado.NIVEL_SUPERADO;
+                estado  = Estado.NIVEL_SUPERADO;
+                naveBoss = null;
             }
         }
+    }
+
+    private int calcularVidaBoss() {
+        return 70 + (nivel.getNumero() / 10 - 1) * 40;
     }
 
     public void limpiarElementosActivos() {
         activosDrones.removeIf(d -> !d.estaActivo());
         activosMisiles.removeIf(Misil::haExplotado);
+        // Colisión bala → nave boss
+        if (naveBoss != null && naveBoss.estaActiva()) {
+            for (BalaJugador bala : balasJugador) {
+                if (!bala.estaActiva()) continue;
+                if (bala.getPosicionY() >= NaveBoss.ALTITUD - 300) {
+                    naveBoss.recibirDanio(10);
+                    bala.desactivar();
+                    jugador.sumarPuntos(20);
+                    verificarVidaExtra();
+                }
+            }
+        }
+
         balasJugador.removeIf(b -> !b.estaActiva());
     }
 
@@ -233,6 +264,7 @@ public class ControladorJuego {
         activosMisiles.clear();
         balasJugador.clear();
         cooldownBala = 0;
+        naveBoss = null;
         ticksDesdeUltimoDisparo = 0;
         estado = Estado.EN_CURSO;
         actualizarVelocidades();
@@ -268,6 +300,7 @@ public class ControladorJuego {
     public List<Dron>        getActivosDrones()  { return activosDrones; }
     public List<Misil>       getActivosMisiles() { return activosMisiles; }
     public List<BalaJugador> getBalasJugador()   { return balasJugador; }
+    public NaveBoss          getNaveBoss()        { return naveBoss; }
     public int getOleadaActual()     { return oleadaActual; }
     public int getTotalOleadas()     { return totalOleadas; }
     public int getEntreOleadasTicks(){ return entreOleadasTicks; }
