@@ -1,7 +1,6 @@
 package interfas;
 
 public class ConfiguracionSkins {
-    public static int skinAvion = 0;  // 0 = original, 1 = moderno
-    public static int skinDron  = 0;  // 0 = original, 1 = moderno
-    // skinMisil siempre igual a skinDron
+    public static int tema = 0;  // 0=ember, 1=rose, 2=violet
+    public static final String[] NOMBRES_TEMA = {"EMBER", "ROSE", "VIOLET"};
 }

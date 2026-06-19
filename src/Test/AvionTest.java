@@ -3,6 +3,7 @@ package Test;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import skydefense.Avion;
+import skydefense.Direccion;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -50,7 +51,7 @@ class AvionTest {
         System.out.println("--- Movimiento hacia la derecha ---");
         System.out.println("  PosicionX inicial: " + avion.getPosicionX());
 
-        avion.mover("DERECHA");
+        avion.mover(Direccion.DERECHA);
 
         System.out.println("  PosicionX tras mover DERECHA: " + avion.getPosicionX());
         assertTrue(avion.getPosicionX() > 500.0);
@@ -61,7 +62,7 @@ class AvionTest {
         System.out.println("--- Movimiento hacia la izquierda ---");
         System.out.println("  PosicionX inicial: " + avion.getPosicionX());
 
-        avion.mover("IZQUIERDA");
+        avion.mover(Direccion.IZQUIERDA);
 
         System.out.println("  PosicionX tras mover IZQUIERDA: " + avion.getPosicionX());
         assertTrue(avion.getPosicionX() < 500.0);

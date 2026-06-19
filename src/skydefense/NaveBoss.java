@@ -10,9 +10,13 @@ public class NaveBoss {
     private static final int   FRECUENCIA_DISP  = 70;
     private static final int   MISILES_POR_SALVA = 7;
 
+    // Ticks de gracia al aparecer: el boss no recibe daño hasta completarlos
+    private static final int GRACE_TICKS = 90;
+
     private int vida;
     private final int vidaMax;
     private int ticksDisparo = 0;
+    private int  ticksActiva = 0;
     private boolean activa   = true;
 
     private double posX = 500.0;
@@ -26,6 +30,8 @@ public class NaveBoss {
     public List<Misil> tick(double velMisil, Random rand) {
         List<Misil> nuevos = new ArrayList<>();
         if (!activa) return nuevos;
+
+        ticksActiva++;
 
         // Movimiento horizontal oscilante
         posX += velX;
@@ -53,8 +59,9 @@ public class NaveBoss {
         if (vida == 0) activa = false;
     }
 
-    public boolean estaActiva() { return activa; }
-    public int    getVida()     { return vida; }
-    public int    getVidaMax()  { return vidaMax; }
-    public double getPosX()     { return posX; }
+    public boolean estaActiva()     { return activa; }
+    public boolean estaVulnerable() { return ticksActiva > GRACE_TICKS; }
+    public int    getVida()         { return vida; }
+    public int    getVidaMax()      { return vidaMax; }
+    public double getPosX()         { return posX; }
 }

@@ -178,13 +178,13 @@ public class ControladorJuego {
     public void calcularDanio(double distancia) {
         double radio = nivel.getMultiplicadorRadio();
         double danio = nivel.getMultiplicadorDanio();
-        if (distancia > 200 * radio) {
+        if (distancia > 100 * radio) {
             jugador.sumarPuntos(40);
             verificarVidaExtra();
-        } else if (distancia >= 110 * radio) {
+        } else if (distancia >= 50 * radio) {
             jugador.sumarPuntos(20);
             evaluarConsecuenciasImpacto((int)(20 * danio));
-        } else if (distancia >= 50 * radio) {
+        } else if (distancia >= 25 * radio) {
             evaluarConsecuenciasImpacto((int)(40 * danio));
         } else {
             jugador.perderVida();
@@ -241,11 +241,12 @@ public class ControladorJuego {
     public void limpiarElementosActivos() {
         activosDrones.removeIf(d -> !d.estaActivo());
         activosMisiles.removeIf(Misil::haExplotado);
-        // Colisión bala → nave boss
-        if (naveBoss != null && naveBoss.estaActiva()) {
+        // Colisión bala → nave boss (hitbox real: distancia X + altitud + vulnerabilidad)
+        if (naveBoss != null && naveBoss.estaActiva() && naveBoss.estaVulnerable()) {
             for (BalaJugador bala : balasJugador) {
                 if (!bala.estaActiva()) continue;
-                if (bala.getPosicionY() >= NaveBoss.ALTITUD - 300) {
+                double dx = Math.abs(bala.getPosicionX() - naveBoss.getPosX());
+                if (bala.getPosicionY() >= NaveBoss.ALTITUD - 200 && dx < 120) {
                     naveBoss.recibirDanio(10);
                     bala.desactivar();
                     jugador.sumarPuntos(20);

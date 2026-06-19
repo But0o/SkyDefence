@@ -3,13 +3,12 @@ package interfas;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.File;
-import java.util.Random;
+import java.awt.image.BufferedImage;
 
 public class PantallaInicio extends JFrame {
 
     private static final int ANCHO = 900;
-    private static final int ALTO = 650;
+    private static final int ALTO  = 650;
 
     public PantallaInicio() {
         setTitle("Sky Defense");
@@ -25,59 +24,45 @@ public class PantallaInicio extends JFrame {
 
     private class PanelMenu extends JPanel {
 
-        private final int[][] posEstrellas;
-        private final int[] brilloEstrellas;
-        private final Timer timerParpadeo;
-        private Font fuenteCRT;
+        // Logo: 720×400 fuente → escala 0.55 → 396×220
+        private static final int LOGO_W = 396;
+        private static final int LOGO_H = 220;
+        private static final int LOGO_X = (ANCHO - LOGO_W) / 2;
+        private static final int LOGO_Y = 18;
+
+        // Botones: 580×120 fuente → escala 0.52 → 302×62
+        private static final int BTN_W  = 240;
+        private static final int BTN_H  = 55;
+        private static final int BTN_X  = (ANCHO - BTN_W) / 2;
+        // Primera fila justo debajo del logo
+        private static final int BTN_Y0 = LOGO_Y + LOGO_H + 32;   // 270
+        private static final int BTN_GAP = 14;
+
+        private float scrollNebula = 0, scrollFar = 0, scrollMid = 0, scrollNear = 0;
+        private final Timer timerFondo;
 
         PanelMenu() {
             setLayout(null);
-            setBackground(new Color(0, 0, 10));
-
-            cargarFuenteCRT();
-
-            posEstrellas = new int[180][2];
-            brilloEstrellas = new int[180];
-            Random rand = new Random();
-            for (int i = 0; i < posEstrellas.length; i++) {
-                posEstrellas[i][0] = rand.nextInt(ANCHO);
-                posEstrellas[i][1] = rand.nextInt(ALTO);
-                brilloEstrellas[i] = rand.nextInt(180) + 60;
-            }
-
+            setBackground(Color.BLACK);
             agregarBotones();
 
-            timerParpadeo = new Timer(120, e -> {
-                Random r = new Random();
-                for (int i = 0; i < brilloEstrellas.length; i++) {
-                    if (r.nextInt(25) == 0) brilloEstrellas[i] = r.nextInt(180) + 60;
-                }
+            timerFondo = new Timer(16, e -> {
+                scrollNebula = (scrollNebula + 0.06f) % 256;
+                scrollFar    = (scrollFar   + 0.20f) % 256;
+                scrollMid    = (scrollMid   + 0.55f) % 256;
+                scrollNear   = (scrollNear  + 1.40f) % 256;
                 repaint();
             });
-            timerParpadeo.start();
-        }
-
-        private void cargarFuenteCRT() {
-            try {
-                fuenteCRT = Font.createFont(Font.TRUETYPE_FONT,
-                        new File("/usr/share/fonts/liberation/LiberationMono-Bold.ttf"));
-                GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(fuenteCRT);
-            } catch (Exception e) {
-                fuenteCRT = null;
-            }
+            timerFondo.start();
         }
 
         private void agregarBotones() {
-            int anchoBtn = 300;
-            int altoBtn  = 52;
-            int x        = (ANCHO - anchoBtn) / 2;
+            JButton btnJugar        = crearBoton(GestorAssets.getMenuBotonJugar(), BTN_X, BTN_Y0);
+            JButton btnPersonalizar = crearBoton(GestorAssets.getMenuBotonSkin(),  BTN_X, BTN_Y0 + BTN_H + BTN_GAP);
+            JButton btnSalir        = crearBoton(GestorAssets.getMenuBotonSalir(), BTN_X, BTN_Y0 + (BTN_H + BTN_GAP) * 2);
 
-            JButton btnJugar        = crearBoton("►  JUGAR",          x, 280, anchoBtn, altoBtn);
-            btnJugar.addActionListener(e -> { PantallaInicio.this.dispose(); new PantallaJuego(); });
-            JButton btnPersonalizar = crearBoton("✦  PERSONALIZAR",    x, 350, anchoBtn, altoBtn);
-            btnPersonalizar.addActionListener(e -> { PantallaInicio.this.dispose(); new PantallaPersonalizacion(); });
-            JButton btnSalir        = crearBoton("✕  SALIR",           x, 420, anchoBtn, altoBtn);
-
+            btnJugar.addActionListener(e -> { timerFondo.stop(); PantallaInicio.this.dispose(); new PantallaJuego(); });
+            btnPersonalizar.addActionListener(e -> { timerFondo.stop(); PantallaInicio.this.dispose(); new PantallaPersonalizacion(); });
             btnSalir.addActionListener(e -> System.exit(0));
 
             add(btnJugar);
@@ -85,40 +70,31 @@ public class PantallaInicio extends JFrame {
             add(btnSalir);
         }
 
-        private JButton crearBoton(String texto, int x, int y, int ancho, int alto) {
-            Color colorNormal = new Color(0, 210, 110);
-            Color colorHover  = new Color(50, 255, 160);
-
-            JButton btn = new JButton(texto) {
+        private JButton crearBoton(BufferedImage img, int x, int y) {
+            JButton btn = new JButton() {
                 @Override
                 protected void paintComponent(Graphics g) {
+                    if (img == null) return;
                     Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-
+                    g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                                        RenderingHints.VALUE_INTERPOLATION_BILINEAR);
                     boolean hover = getModel().isRollover();
-                    Color color   = hover ? colorHover : colorNormal;
-
-                    g2.setColor(hover ? new Color(0, 255, 150, 25) : new Color(0, 0, 10));
-                    g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
-
-                    g2.setStroke(new BasicStroke(2f));
-                    g2.setColor(color);
-                    g2.drawRoundRect(1, 1, getWidth() - 2, getHeight() - 2, 6, 6);
-
-                    g2.setFont(new Font("Monospaced", Font.BOLD, 17));
-                    FontMetrics fm = g2.getFontMetrics();
-                    int tx = (getWidth()  - fm.stringWidth(getText())) / 2;
-                    int ty = (getHeight() + fm.getAscent() - fm.getDescent()) / 2;
-                    g2.setColor(color);
-                    g2.drawString(getText(), tx, ty);
+                    if (hover) {
+                        int dx = 8, dy = 4;
+                        Composite prev = g2.getComposite();
+                        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.20f));
+                        g2.setColor(Color.WHITE);
+                        g2.fillRoundRect(-dx/2, -dy/2, getWidth()+dx, getHeight()+dy, 8, 8);
+                        g2.setComposite(prev);
+                        g2.drawImage(img, -dx/2, -dy/2, getWidth()+dx, getHeight()+dy, null);
+                    } else {
+                        g2.drawImage(img, 0, 0, getWidth(), getHeight(), null);
+                    }
                     g2.dispose();
                 }
-
                 @Override protected void paintBorder(Graphics g) {}
             };
-
-            btn.setBounds(x, y, ancho, alto);
+            btn.setBounds(x, y, BTN_W, BTN_H);
             btn.setContentAreaFilled(false);
             btn.setBorderPainted(false);
             btn.setFocusPainted(false);
@@ -126,124 +102,53 @@ public class PantallaInicio extends JFrame {
             return btn;
         }
 
-        // -------------------------------------------------------------------------
+        // ── Pintado ──────────────────────────────────────────────────────────
 
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g;
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,      RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION,    RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING,     RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
             pintarFondo(g2);
-            pintarEstrellas(g2);
-            pintarTitulo(g2);
-            pintarLineasDecorativas(g2);
-            pintarPieVersion(g2);
+            pintarLogo(g2);
             pintarScanlines(g2);
             pintarViñeta(g2);
         }
 
         private void pintarFondo(Graphics2D g2) {
-            g2.setPaint(new GradientPaint(0, 0, new Color(0, 0, 18), 0, ALTO, new Color(0, 5, 35)));
-            g2.fillRect(0, 0, ANCHO, ALTO);
-        }
-
-        private void pintarEstrellas(Graphics2D g2) {
-            for (int i = 0; i < posEstrellas.length; i++) {
-                int b = brilloEstrellas[i];
-                g2.setColor(new Color(b, b, b));
-                int sz = b > 210 ? 2 : 1;
-                g2.fillOval(posEstrellas[i][0], posEstrellas[i][1], sz, sz);
-            }
-        }
-
-        private void pintarTitulo(Graphics2D g2) {
-            String titulo = "SKY DEFENSE";
-            Font fuenteTitulo = fuenteCRT != null
-                    ? fuenteCRT.deriveFont(Font.BOLD, 74f)
-                    : new Font("Monospaced", Font.BOLD, 74);
-            g2.setFont(fuenteTitulo);
-            FontMetrics fm = g2.getFontMetrics();
-            int tx = (ANCHO - fm.stringWidth(titulo)) / 2;
-            int ty = 190;
-
-            // Halo verde difuso
-            for (int d = 6; d >= 1; d--) {
-                g2.setColor(new Color(0, 255, 140, 12 * (7 - d)));
-                g2.drawString(titulo, tx - d, ty - d);
-                g2.drawString(titulo, tx + d, ty - d);
-                g2.drawString(titulo, tx - d, ty + d);
-                g2.drawString(titulo, tx + d, ty + d);
-            }
-
-            // Aberración cromática: canal rojo a la izquierda, azul a la derecha
-            Composite original = g2.getComposite();
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.50f));
-            g2.setColor(new Color(255, 0, 0));
-            g2.drawString(titulo, tx - 3, ty);
-            g2.setColor(new Color(0, 60, 255));
-            g2.drawString(titulo, tx + 3, ty);
-            g2.setComposite(original);
-
-            // Canal verde principal encima
-            g2.setColor(new Color(0, 255, 145));
-            g2.drawString(titulo, tx, ty);
-
-            // Subtítulo
-            String sub = " - -  D E F I E N D E   E L   C I E L O  - - ";
-            Font fuenteSub = new Font("Monospaced", Font.PLAIN, 15);
-            g2.setFont(fuenteSub);
-            FontMetrics fmSub = g2.getFontMetrics();
-            int sx = (ANCHO - fmSub.stringWidth(sub)) / 2;
-            g2.setColor(new Color(0, 160, 90));
-            g2.drawString(sub, sx, ty + 32);
-        }
-
-        private void pintarLineasDecorativas(Graphics2D g2) {
-            g2.setStroke(new BasicStroke(1f));
-            g2.setColor(new Color(0, 255, 140, 45));
-
-            g2.setColor(new Color(0, 200, 100, 90));
-            g2.setStroke(new BasicStroke(2f));
-            int m = 22, l = 24;
-            g2.drawLine(m,         m,        m + l,     m        );
-            g2.drawLine(m,         m,        m,         m + l    );
-            g2.drawLine(ANCHO - m, m,        ANCHO-m-l, m        );
-            g2.drawLine(ANCHO - m, m,        ANCHO - m, m + l    );
-            g2.drawLine(m,         ALTO - m, m + l,     ALTO - m );
-            g2.drawLine(m,         ALTO - m, m,         ALTO-m-l );
-            g2.drawLine(ANCHO - m, ALTO - m, ANCHO-m-l, ALTO - m );
-            g2.drawLine(ANCHO - m, ALTO - m, ANCHO - m, ALTO-m-l );
-        }
-
-        // Líneas horizontales semitransparentes que simulan el fosforescente de un CRT
-        private void pintarScanlines(Graphics2D g2) {
-            Composite anterior = g2.getComposite();
-            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.07f));
             g2.setColor(Color.BLACK);
-            for (int y = 0; y < ALTO; y += 3) {
-                g2.fillRect(0, y, ANCHO, 1);
-            }
-            g2.setComposite(anterior);
-        }
-
-        // Oscurece los bordes como la curvatura de una pantalla CRT
-        private void pintarViñeta(Graphics2D g2) {
-            float radio = Math.max(ANCHO, ALTO) * 0.70f;
-            RadialGradientPaint viñeta = new RadialGradientPaint(
-                    ANCHO / 2f, ALTO / 2f, radio,
-                    new float[]{0.40f, 1.0f},
-                    new Color[]{new Color(0, 0, 0, 0), new Color(0, 0, 0, 200)}
-            );
-            g2.setPaint(viñeta);
             g2.fillRect(0, 0, ANCHO, ALTO);
+            GestorAssets.drawTiledLayer(g2, GestorAssets.getBackground("nebula"), scrollNebula, 0.28f, ANCHO, ALTO);
+            GestorAssets.drawTiledLayer(g2, GestorAssets.getBackground("far"),    scrollFar,    0.80f, ANCHO, ALTO);
+            GestorAssets.drawTiledLayer(g2, GestorAssets.getBackground("mid"),    scrollMid,    0.90f, ANCHO, ALTO);
+            GestorAssets.drawTiledLayer(g2, GestorAssets.getBackground("near"),   scrollNear,   1.00f, ANCHO, ALTO);
         }
 
-        private void pintarPieVersion(Graphics2D g2) {
-            g2.setFont(new Font("Monospaced", Font.PLAIN, 11));
-            g2.setColor(new Color(0, 120, 65));
-            g2.drawString("v0.1", 26, ALTO - 25);
+        private void pintarLogo(Graphics2D g2) {
+            BufferedImage logo = GestorAssets.getMenuLogo();
+            if (logo == null) return;
+            g2.drawImage(logo, LOGO_X, LOGO_Y, LOGO_W, LOGO_H, null);
+        }
+
+        private void pintarScanlines(Graphics2D g2) {
+            Composite prev = g2.getComposite();
+            g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.05f));
+            g2.setColor(Color.BLACK);
+            for (int y = 0; y < ALTO; y += 3) g2.fillRect(0, y, ANCHO, 1);
+            g2.setComposite(prev);
+        }
+
+        private void pintarViñeta(Graphics2D g2) {
+            float radio = Math.max(ANCHO, ALTO) * 0.72f;
+            g2.setPaint(new RadialGradientPaint(
+                    ANCHO / 2f, ALTO / 2f, radio,
+                    new float[]{0.45f, 1.0f},
+                    new Color[]{new Color(0,0,0,0), new Color(0,0,0,160)}
+            ));
+            g2.fillRect(0, 0, ANCHO, ALTO);
         }
     }
 
