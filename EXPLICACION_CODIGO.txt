@@ -1,0 +1,1685 @@
+=============================================================
+  EXPLICACIÓN: PantallaInicio.java
+  Sky Defense — Pantalla de Menú Principal
+=============================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ESTRUCTURA GENERAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El archivo tiene dos clases:
+
+  1. PantallaInicio  →  la ventana (JFrame)
+  2. PanelMenu       →  el contenido visual dentro de esa ventana (JPanel)
+                        Es una clase interna privada de PantallaInicio.
+
+PanelMenu está adentro de PantallaInicio porque solo ella la usa.
+Esto se llama "clase interna" (inner class) en Java.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. CLASE PantallaInicio
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  private static final int ANCHO = 900;
+  private static final int ALTO  = 650;
+
+    → Son constantes de la clase. El tamaño fijo de la ventana.
+      "static final" significa que no cambia y pertenece a la clase,
+      no a una instancia particular.
+
+  public PantallaInicio() { ... }   ← constructor
+
+    → setTitle(...)           pone el nombre en la barra de la ventana
+    → setSize(ANCHO, ALTO)    establece el tamaño en píxeles
+    → setDefaultCloseOperation(EXIT_ON_CLOSE)
+                              cuando cerrás la ventana, termina el programa
+    → setLocationRelativeTo(null)
+                              centra la ventana en la pantalla
+    → setResizable(false)     no se puede cambiar el tamaño arrastrando
+    → add(new PanelMenu())    agrega el panel (el contenido visual)
+    → setVisible(true)        hace la ventana visible
+
+  public static void main(String[] args) {
+      SwingUtilities.invokeLater(PantallaInicio::new);
+  }
+
+    → SwingUtilities.invokeLater() ejecuta el código en el "Event Dispatch
+      Thread" (EDT), que es el hilo especial de Swing para dibujar la UI.
+      Esto evita problemas de concurrencia.
+    → PantallaInicio::new  es una referencia al constructor (lambda corta).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. CLASE PanelMenu — campos (variables)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  private final int[][] posEstrellas;
+
+    → Array bidimensional con las posiciones (x, y) de las 180 estrellas
+      del fondo. posEstrellas[i][0] = x,  posEstrellas[i][1] = y.
+
+  private final int[] brilloEstrellas;
+
+    → Array de 180 valores (0-255) que representan el brillo de cada
+      estrella. Varía con el tiempo para simular parpadeo.
+
+  private final Timer timerParpadeo;
+
+    → Timer de Swing. Cada 120ms llama a una función que aleatoriamente
+      cambia el brillo de algunas estrellas y llama repaint() para
+      redibujar la pantalla.
+
+  private Font fuenteCRT;
+
+    → La fuente "Liberation Mono Bold" cargada desde el archivo .ttf
+      del sistema. Si no se puede cargar, queda en null y se usa
+      "Monospaced" como respaldo.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. CONSTRUCTOR PanelMenu()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  setLayout(null)
+
+    → Le decimos a Swing que NO use un layout automático. Nosotros
+      vamos a posicionar cada componente manualmente con setBounds().
+
+  cargarFuenteCRT()
+
+    → Carga la fuente desde el disco antes de hacer cualquier otra cosa.
+
+  Bucle de generación de estrellas:
+
+      for (int i = 0; i < posEstrellas.length; i++) {
+          posEstrellas[i][0] = rand.nextInt(ANCHO);   // x aleatorio
+          posEstrellas[i][1] = rand.nextInt(ALTO);    // y aleatorio
+          brilloEstrellas[i] = rand.nextInt(180) + 60; // brillo entre 60-240
+      }
+
+    → Distribuye 180 estrellas en posiciones y brillos aleatorios.
+      El mínimo de 60 evita que alguna estrella sea invisible.
+
+  Timer con lambda:
+
+      timerParpadeo = new Timer(120, e -> {
+          for (int i = 0; i < brilloEstrellas.length; i++) {
+              if (r.nextInt(25) == 0)
+                  brilloEstrellas[i] = r.nextInt(180) + 60;
+          }
+          repaint();
+      });
+      timerParpadeo.start();
+
+    → Cada 120ms: recorre todas las estrellas. Hay 1/25 de probabilidad
+      de que cada estrella cambie su brillo.
+    → repaint() le dice a Swing que vuelva a dibujar el panel.
+      Esto llama a paintComponent() de nuevo.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. cargarFuenteCRT()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Font.createFont(Font.TRUETYPE_FONT, new File("ruta..."))
+
+    → Carga un archivo .ttf desde el disco como objeto Font de Java.
+    → "Liberation Mono Bold" es una fuente monoespaciada de aspecto
+      terminal, similar a Courier New pero más limpia.
+
+  GraphicsEnvironment.getLocalGraphicsEnvironment().registerFont(fuenteCRT)
+
+    → Registra la fuente en el sistema gráfico de Java para poder usarla
+      por nombre si hiciera falta.
+
+  El try/catch captura cualquier error (archivo no encontrado, fuente
+  corrupta) y en ese caso deja fuenteCRT en null para que el código
+  use "Monospaced" como fallback.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. agregarBotones()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Crea tres botones y los posiciona manualmente:
+
+      int anchoBtn = 300;
+      int altoBtn  = 52;
+      int x        = (ANCHO - anchoBtn) / 2;   // centrado horizontal
+
+  Cada botón se crea con crearBoton() y se agrega al panel con add().
+  Solo al botón SALIR se le conecta una acción concreta: System.exit(0).
+  Los otros (JUGAR y PERSONALIZAR) se dejaron sin acción por ahora.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. crearBoton()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Se crea un JButton anónimo (new JButton(texto) { ... }) con dos
+  métodos sobrescritos:
+
+  paintComponent(Graphics g):
+
+    → Aquí se dibuja todo el botón manualmente. Swing normalmente
+      dibujaría un botón con su estilo del SO (gris, con borde 3D,
+      etc.), pero al sobreescribir este método tomamos el control total.
+
+    → g.create()  →  crea una copia del contexto gráfico. Importante
+      para no "contaminar" el estado gráfico del panel padre.
+
+    → getModel().isRollover()  →  devuelve true si el mouse está
+      encima del botón. Así cambiamos el color al hacer hover.
+
+    → fillRoundRect  →  dibuja el fondo del botón con esquinas
+      redondeadas.
+
+    → drawRoundRect  →  dibuja el borde del botón.
+
+    → drawString  →  escribe el texto del botón centrado.
+
+    → Para centrar el texto:
+        tx = (ancho_total - ancho_texto) / 2
+        ty = (alto_total + ascent - descent) / 2
+      FontMetrics nos da estas medidas del texto.
+
+  paintBorder(Graphics g):
+
+    → Sobreescrito vacío para que Swing no dibuje su propio borde
+      por encima del nuestro.
+
+  Configuraciones del botón:
+
+    → setContentAreaFilled(false)  no rellena el área (lo hacemos nosotros)
+    → setBorderPainted(false)      no pinta borde de Swing
+    → setFocusPainted(false)       no muestra el rectángulo de foco
+    → setCursor(HAND_CURSOR)       cambia el cursor a manito al pasar
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. paintComponent() — el método principal de dibujo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Swing llama a este método automáticamente cuando hay que redibujar
+  el panel (al abrirlo, al hacer repaint(), al mover la ventana, etc.).
+
+  El orden de las llamadas importa: lo que se dibuja después queda
+  encima de lo anterior.
+
+      super.paintComponent(g)  →  limpia el panel con el color de fondo
+      pintarFondo(g2)          →  degradado azul oscuro
+      pintarEstrellas(g2)      →  puntos parpadeantes
+      pintarTitulo(g2)         →  "SKY DEFENSE" con efectos
+      pintarLineasDecorativas  →  líneas y esquinas HUD
+      pintarPieVersion         →  "v0.1" abajo a la izquierda
+      pintarScanlines(g2)      →  efecto CRT, va ENCIMA de todo
+      pintarViñeta(g2)         →  oscurece bordes, va al final
+
+  setRenderingHint:
+    → Activa el antialiasing (suavizado de bordes) para que las líneas
+      y el texto no se vean dentados (pixelados).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  8. pintarFondo()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  GradientPaint(x1, y1, color1, x2, y2, color2)
+
+    → Crea una transición de color entre dos puntos.
+    → (0, 0, azul muy oscuro) hasta (0, ALTO, azul oscuro)
+    → El degradado es vertical: arriba más negro, abajo levemente
+      más azulado, dando sensación de profundidad de cielo nocturno.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  9. pintarEstrellas()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Recorre las 180 estrellas y dibuja un óvalo (círculo) de tamaño
+  1 o 2 píxeles dependiendo del brillo. Las estrellas muy brillantes
+  (>210) se dibujan con 2px para que parezcan más grandes.
+
+  El color es new Color(b, b, b) donde b es el brillo → blanco
+  con distintas intensidades (gris claro o blanco puro).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  10. pintarTitulo() — efectos CRT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  La fuente:
+
+      fuenteCRT != null
+          ? fuenteCRT.deriveFont(Font.BOLD, 74f)   ← Liberation Mono
+          : new Font("Monospaced", Font.BOLD, 74)   ← fallback
+
+    → deriveFont() crea una variante de la fuente con el tamaño/estilo
+      que se indique, sin recargar el archivo.
+
+  Cálculo de posición centrada:
+
+      int tx = (ANCHO - fm.stringWidth(titulo)) / 2;
+
+    → FontMetrics.stringWidth() devuelve el ancho en píxeles del texto
+      con la fuente actual. Lo restamos al ancho total y dividimos por 2
+      para centrarlo.
+
+  Halo (glow):
+
+      for (int d = 6; d >= 1; d--) {
+          g2.setColor(new Color(0, 255, 140, 12 * (7 - d)));
+          // dibuja el texto desplazado d píxeles en las 4 diagonales
+      }
+
+    → Dibuja el título varias veces desplazado hacia las esquinas, con
+      transparencia creciente hacia adentro. Crea el efecto de brillo
+      fosforescente típico de los monitores CRT.
+    → El cuarto valor de Color (0–255) es el alpha (transparencia).
+      12 * (7 - d): cuando d=6 → alpha=12, cuando d=1 → alpha=72.
+      Las capas más cercanas al centro son más brillantes.
+
+  Aberración cromática:
+
+      g2.setComposite(AlphaComposite.getInstance(SRC_OVER, 0.50f));
+      g2.setColor(new Color(255, 0, 0));
+      g2.drawString(titulo, tx - 3, ty);       // rojo, 3px a la izquierda
+      g2.setColor(new Color(0, 60, 255));
+      g2.drawString(titulo, tx + 3, ty);       // azul, 3px a la derecha
+      g2.setComposite(original);               // restaura transparencia
+      g2.setColor(new Color(0, 255, 145));
+      g2.drawString(titulo, tx, ty);           // verde, posición real
+
+    → Las pantallas CRT físicas tenían tres cañones de electrones
+      (rojo, verde, azul). Al deteriorarse o recibir golpes, los canales
+      se desalineaban ligeramente, dando un efecto de "ghost" de colores
+      en los bordes del texto. Esto simula ese defecto visual.
+    → AlphaComposite.SRC_OVER con alpha 0.50 hace que el rojo y el azul
+      sean semitransparentes, así no tapan el verde principal.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  11. pintarLineasDecorativas()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Dos líneas horizontales semitransparentes que separan visualmente
+  el título del área de botones, y los botones del pie.
+
+  Las 8 líneas de las esquinas forman corchetes angulares (tipo HUD
+  militar) en las cuatro esquinas de la ventana. Se dibujan en pares:
+  una horizontal y una vertical por cada esquina.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  12. pintarScanlines() — efecto CRT nuevo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      Composite anterior = g2.getComposite();
+      g2.setComposite(AlphaComposite.getInstance(SRC_OVER, 0.07f));
+      g2.setColor(Color.BLACK);
+      for (int y = 0; y < ALTO; y += 3) {
+          g2.fillRect(0, y, ANCHO, 1);
+      }
+      g2.setComposite(anterior);
+
+    → Las pantallas CRT no tenían píxeles cuadrados: el haz de electrones
+      barría la pantalla línea a línea, dejando bandas horizontales
+      visibles. Esto simula ese efecto.
+    → Cada 3 píxeles dibuja una línea negra de 1px de alto, con solo
+      7% de opacidad (muy sutil, no tapa el contenido).
+    → Se guarda y restaura el Composite para no afectar el dibujo
+      de los botones que vienen después.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  13. pintarViñeta() — efecto CRT nuevo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+      RadialGradientPaint viñeta = new RadialGradientPaint(
+          ANCHO / 2f, ALTO / 2f,          // centro de la pantalla
+          radio,                           // radio del gradiente
+          new float[]{0.40f, 1.0f},        // puntos de color: 40% y 100%
+          new Color[]{
+              new Color(0, 0, 0, 0),       // transparente en el centro
+              new Color(0, 0, 0, 200)      // negro semiopaco en los bordes
+          }
+      );
+
+    → Los tubos CRT tenían forma ligeramente esférica (convexos), lo
+      que hacía que los bordes de la imagen se vieran más oscuros.
+    → RadialGradientPaint crea un gradiente circular desde el centro
+      hacia afuera. El centro es completamente transparente (no tapa nada),
+      y los bordes se oscurecen con negro semiopaco (alpha=200 de 255).
+    → float[] fracciones: 0.40 = el gradiente empieza a oscurecer en
+      el 40% del radio, 1.0 = llega al máximo de oscuridad en el borde.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RESUMEN DE LA PILA DE DIBUJO
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Capa 1 (abajo):  degradado de fondo azul oscuro
+  Capa 2:          estrellas parpadeantes
+  Capa 3:          título con halo y aberración cromática
+  Capa 4:          líneas decorativas y esquinas HUD
+  Capa 5:          texto de versión
+  Capa 6:          scanlines (encima de todo el contenido)
+  Capa 7 (arriba): viñeta oscura en los bordes
+
+  Los botones (JButton) los maneja Swing por separado —
+  son componentes hijos del panel, no se dibujan en paintComponent.
+
+=============================================================
+
+
+=============================================================
+  EXPLICACIÓN: ConfiguracionSkins.java
+  Sky Defense — Almacén de preferencias de skins
+=============================================================
+
+Este archivo es un simple contenedor de estado global.
+Tiene dos campos estáticos que guardan qué skin eligió el jugador:
+
+  public static int skinAvion = 0;
+  public static int skinDron  = 0;
+
+  → "static" significa que el valor pertenece a la clase, no a
+    ninguna instancia. Así cualquier parte del código puede leer
+    o escribir la selección con ConfiguracionSkins.skinAvion
+    sin necesidad de pasar referencias de objeto.
+
+  → 0 = skin original,  1 = skin moderno.
+
+  → skinMisil no existe como campo separado porque siempre es
+    igual a skinDron: si el dron es moderno, su misil también
+    lo es. Esto se maneja directamente en el código que dibuja.
+
+  → Cuando el juego arranque y renderice drones o misiles,
+    consultará estos valores para decidir qué método de dibujo
+    usar (dibujarDronOriginal vs dibujarDronModerno, etc.).
+
+
+=============================================================
+  EXPLICACIÓN: PantallaPersonalizacion.java
+  Sky Defense — Pantalla de selección de skins
+=============================================================
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  ESTRUCTURA GENERAL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+El archivo tiene tres capas de clases anidadas:
+
+  1. PantallaPersonalizacion  →  el JFrame (ventana)
+  2. PanelPersonalizacion     →  el JPanel (contenido)
+                                 Clase interna privada.
+  3. TarjetaSkin              →  cada tarjeta clickeable.
+                                 Clase interna privada.
+
+Y métodos estáticos de dibujo para cada skin:
+
+  dibujarAvionOriginal / dibujarAvionModerno
+  dibujarDronOriginal  / dibujarDronModerno
+  dibujarMisilOriginal / dibujarMisilModerno
+
+Estos métodos son "public static" para que el juego pueda
+reutilizarlos cuando renderice la partida.
+
+También hay un enum:
+
+  enum TipoSkin { AVION, DRON }
+
+  → Un enum es un tipo especial con valores fijos nombrados.
+    Se usa para que TarjetaSkin sepa si representa un avión
+    o un dron, sin usar enteros o strings que se pueden confundir.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  1. CLASE PantallaPersonalizacion
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Idéntica en estructura a PantallaInicio. Crea la ventana,
+agrega PanelPersonalizacion, y la hace visible.
+
+El main() sirve para testear la pantalla de forma aislada,
+sin pasar por el menú principal.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  2. CLASE PanelPersonalizacion — campos y constructor
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  private final TarjetaSkin[] tarjetasAvion = new TarjetaSkin[2];
+  private final TarjetaSkin[] tarjetasDron  = new TarjetaSkin[2];
+
+    → Arrays de dos elementos, uno por skin disponible en cada
+      categoría. Se inicializan en crearTarjetas().
+
+El constructor hace tres cosas:
+  1. Genera las posiciones y brillos de las estrellas (igual que
+     en PantallaInicio).
+  2. Llama a crearTarjetas() y crearBotonVolver().
+  3. Arranca el timer de parpadeo de estrellas.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  3. crearTarjetas()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Crea 4 objetos TarjetaSkin y los posiciona con setBounds():
+
+  Sección izquierda (NAVE DEL JUGADOR):
+    tarjetasAvion[0]  →  x=43,  y=150  (Original)
+    tarjetasAvion[1]  →  x=233, y=150  (Moderno)
+
+  Sección derecha (NAVES ENEMIGAS):
+    tarjetasDron[0]   →  x=490, y=150  (Original)
+    tarjetasDron[1]   →  x=680, y=150  (Moderno)
+
+  Todas miden 175px de ancho × 250px de alto.
+
+  Luego conecta el evento de click:
+
+      t.addMouseListener(new MouseAdapter() {
+          @Override public void mouseClicked(MouseEvent e) {
+              ConfiguracionSkins.skinAvion = t.indice;
+              for (TarjetaSkin ts : tarjetasAvion) ts.repaint();
+          }
+      });
+
+    → Al hacer click en una tarjeta, actualiza el campo estático
+      correspondiente con el índice de esa tarjeta (0 ó 1).
+    → Luego llama repaint() en TODAS las tarjetas del mismo grupo
+      para que la que estaba seleccionada se "deseleccione" visualmente
+      y la nueva se "seleccione". Si sólo se repintara la clickeada,
+      la anterior quedaría con el borde brillante indefinidamente.
+
+  MouseAdapter es una clase abstracta que implementa vacíos todos
+  los métodos de MouseListener. Al extenderla sólo hace falta
+  sobreescribir los que interesan (mouseClicked), sin necesidad
+  de definir los otros 4 métodos vacíos a mano.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  4. crearBotonVolver()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Mismo diseño que los botones de PantallaInicio (JButton anónimo
+con paintComponent sobreescrito). La diferencia está en la acción:
+
+      btn.addActionListener(e -> {
+          PantallaPersonalizacion.this.dispose();
+          new PantallaInicio();
+      });
+
+    → PantallaPersonalizacion.this.dispose()  cierra esta ventana.
+    → new PantallaInicio()  abre el menú principal.
+    → Se usa PantallaPersonalizacion.this porque la lambda está
+      dentro de una clase anónima (el JButton), y un simple
+      dispose() buscaría el this más cercano, que sería el botón
+      en vez del JFrame. La calificación explícita resuelve la
+      ambigüedad.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  5. paintComponent() y métodos de fondo
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Idénticos a los de PantallaInicio en mecánica:
+pintarFondo, pintarEstrellas, pintarScanlines, pintarViñeta.
+
+Métodos nuevos:
+
+  pintarTitulo():
+    → Igual al de PantallaInicio pero con el texto "PERSONALIZAR"
+      y tamaño 42px en lugar de 74px.
+
+  pintarEtiquetasSecciones():
+    → Dibuja los títulos "── NAVE DEL JUGADOR ──" y
+      "── NAVES ENEMIGAS ──" centrados sobre sus respectivos
+      grupos de tarjetas.
+    → También dibuja tres líneas: superior, inferior, y una
+      vertical en el centro (x=448) que separa visualmente
+      las dos secciones.
+    → Las posiciones de centrado se calculan como:
+        cxA = (43 + 408) / 2 = 225   ← centro del bloque izquierdo
+        cxD = (490 + 855) / 2 = 672  ← centro del bloque derecho
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  6. CLASE TarjetaSkin
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Extiende JPanel y representa una opción de skin clickeable.
+
+  Campos:
+    final TipoSkin tipo    → AVION o DRON
+    final int      indice  → 0 (original) o 1 (moderno)
+    final String   nombre  → "ORIGINAL" o "MODERNO"
+    boolean        hover   → true mientras el mouse está encima
+
+  Estado de hover:
+    Se actualiza con mouseEntered / mouseExited dentro del
+    constructor. Cada vez que cambia, llama repaint() para
+    actualizar el borde de la tarjeta en tiempo real.
+
+  estaSeleccionado():
+
+      return tipo == TipoSkin.AVION
+          ? ConfiguracionSkins.skinAvion == indice
+          : ConfiguracionSkins.skinDron  == indice;
+
+    → Consulta el valor global y compara con el índice propio.
+      Devuelve true si esta tarjeta es la actualmente elegida.
+    → El operador ternario ( ? : ) es un if-else compacto:
+        condicion ? valorSiTrue : valorSiFalse
+
+  paintComponent():
+
+    1. Dibuja el fondo de la tarjeta: más oscuro y verdoso si está
+       seleccionada, casi negro si no.
+
+    2. Dibuja el borde:
+         verde brillante   → seleccionada
+         verde medio       → hover (mouse encima)
+         verde muy oscuro  → normal
+
+    3. Según el tipo:
+
+       Para AVION:
+         cy = 118 (centro vertical del área de dibujo)
+         Llama dibujarAvionOriginal o dibujarAvionModerno.
+
+       Para DRON:
+         cyDron  = 72   ← centro del sprite del dron
+         cyMisil = 172  ← centro del sprite del misil
+         Dibuja el dron, luego el texto "─ MISIL ─" a y=128,
+         luego el misil. Esto queda todo dentro del área de
+         dibujo (0 a ~215px) dejando 35px para la etiqueta.
+
+    4. Dibuja la etiqueta en la parte inferior:
+         "✔ ORIGINAL"  si está seleccionada
+         "  ORIGINAL"  si no lo está
+       El "✔" da feedback visual adicional al borde.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  7. MÉTODOS DE DIBUJO DE SKINS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Todos son "public static" para que el motor de juego los pueda
+llamar sin necesitar una instancia de PantallaPersonalizacion.
+Todos reciben (Graphics2D g2, int cx, int cy): contexto gráfico
+y el centro del área donde dibujar.
+
+  dibujarAvionOriginal(g2, cx, cy):
+    → Triángulo verde sólido apuntando arriba (fuselaje).
+    → Dos triángulos más pequeños a los lados (alas).
+    → Rectángulo bajo las alas (motor/tobera).
+    → Óvalo en la punta (cabina con color semitransparente).
+    → fillPolygon() rellena un polígono dado por arrays de
+      coordenadas x[] e y[]. drawPolygon() traza el contorno.
+
+  dibujarAvionModerno(g2, cx, cy):
+    → Fuselaje angosto de 5 puntos con gradiente azul/cyan.
+    → Alas delta extendidas (triángulos más anchos y largos).
+    → Llama del motor dibujada con dos triángulos superpuestos:
+      uno naranja exterior y uno amarillo más angosto, usando
+      colores semitransparentes para el efecto de fuego.
+    → Cabina alargada con gradiente claro arriba, oscuro abajo.
+    → GradientPaint: gradiente lineal entre dos puntos y colores.
+
+  dibujarDronOriginal(g2, cx, cy):
+    → Cuerpo rectangular central naranja.
+    → Dos rectángulos laterales (alas) más oscuros.
+    → Detalle interior más brillante (simula un panel o cámara).
+    → Antena: una línea vertical y un círculo en la punta.
+
+  dibujarDronModerno(g2, cx, cy):
+    → 4 brazos dibujados con BasicStroke(5f) (línea gruesa de 5px).
+      Los 4 extremos son las posiciones de los rotores (armTips[]).
+    → Rotores: un círculo con brillo semitransparente (fillOval con
+      AlphaComposite) + un anillo sólido (drawOval) + una cruz
+      interna (drawLine horizontal + vertical).
+    → AlphaComposite.getInstance(SRC_OVER, 0.22f): aplica 22% de
+      opacidad al siguiente dibujado, para el halo de los rotores.
+    → Cuerpo hexagonal: se calculan los 6 vértices con trigonometría:
+        for i in 0..5:
+          angulo = PI/2 + i * PI/3   // 0°, 60°, 120°, 180°, 240°, 300°
+          x = cx + radio * cos(angulo)
+          y = cy + radio * sin(angulo)
+      Empezando en PI/2 (90°) el primer vértice queda en la parte
+      superior, dando un hexágono "parado" en punta.
+    → Sensor central: círculo blanco pequeño con borde azul.
+
+  dibujarMisilOriginal(g2, cx, cy):
+    → Cuerpo: rectángulo vertical delgado naranja.
+    → Punta hacia abajo: triángulo debajo del cuerpo.
+    → Aletas: dos triángulos pequeños en la parte superior.
+    → Todo en naranja/rojo, estilo retro sin gradientes.
+
+  dibujarMisilModerno(g2, cx, cy):
+    → Cuerpo: polígono de 5 puntos más ancho en el centro,
+      estrechándose en la punta inferior. Con gradiente violeta.
+    → Glow: fillOval con 22% de opacidad encima del cuerpo.
+    → Llama en la cola (arriba, dado que el misil apunta hacia
+      abajo): dos triángulos superpuestos, naranja y amarillo,
+      simulando fuego igual que el motor del avión moderno.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  8. NAVEGACIÓN ENTRE PANTALLAS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  PantallaInicio  →  PERSONALIZAR clickeado:
+      PantallaInicio.this.dispose();
+      new PantallaPersonalizacion();
+
+  PantallaPersonalizacion  →  VOLVER clickeado:
+      PantallaPersonalizacion.this.dispose();
+      new PantallaInicio();
+
+  Patrón: siempre se destruye la ventana actual (dispose) antes
+  de crear la nueva. Esto libera los recursos de Swing (threads
+  del EDT, buffers de imagen) y evita que queden ventanas
+  "fantasmas" en segundo plano.
+
+  dispose() vs System.exit(0):
+    → dispose() cierra solo esa ventana y libera sus recursos.
+      Si hay otra ventana abierta, el programa sigue corriendo.
+    → System.exit(0) termina toda la JVM. Se usa únicamente en
+      el botón SALIR del menú principal.
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  RESUMEN DE LA PILA DE DIBUJO (PantallaPersonalizacion)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Capa 1 (abajo):  degradado de fondo azul oscuro
+  Capa 2:          estrellas parpadeantes
+  Capa 3:          título "PERSONALIZAR" con glow
+  Capa 4:          etiquetas de sección y líneas separadoras
+  Capa 5:          decoraciones de esquina (HUD)
+  Capa 6:          scanlines CRT
+  Capa 7 (arriba): viñeta de bordes
+
+  Las 4 TarjetaSkin son componentes hijos del panel —
+  Swing los dibuja por encima de paintComponent automáticamente,
+  por eso no aparecen en esta lista.
+
+=============================================================
+
+
+
+
+=============================================================
+  EXPLICACIÓN: ObjetoVolador.java
+  Sky Defense — Clase abstracta base del modelo
+=============================================================
+
+ObjetoVolador es la raíz de la jerarquía de objetos del juego.
+La extienden Avion, Dron, Misil y BalaJugador.
+
+  protected double posicionX;
+  protected double posicionY;
+  protected double velocidad;
+
+    → "protected" significa que las subclases pueden acceder
+      directamente a estos campos sin necesitar getter/setter.
+      Esto es posible porque las subclases siempre están en el
+      mismo paquete y es intencional que puedan modificarlos.
+
+  public abstract void mover();
+
+    → "abstract" significa que ObjetoVolador declara el método
+      pero NO lo implementa. Cada subclase DEBE implementarlo.
+    → Esto es polimorfismo: el código que llama mover() no sabe
+      si está moviendo un Dron, un Misil o una Bala, y no le
+      importa. Cada uno sabe cómo moverse.
+    → Una clase con al menos un método abstract es abstract
+      automáticamente, y no se puede instanciar directamente
+      (no se puede hacer new ObjetoVolador()).
+
+
+=============================================================
+  EXPLICACIÓN: Direccion.java
+  Sky Defense — Enum de dirección horizontal
+=============================================================
+
+public enum Direccion { IZQUIERDA, DERECHA }
+
+  → Es un enum con dos valores: IZQUIERDA y DERECHA.
+  → Se usa en Avion.mover(Direccion) en lugar de pasar un
+    String ("IZQUIERDA") o un entero (-1 / 1). Esto evita
+    errores de tipeo y hace el código autoexplicativo.
+  → Al usar un enum el compilador garantiza que solo se
+    pueden pasar esos dos valores; con un String cualquier
+    typo pasa desapercibido en tiempo de compilación.
+
+
+=============================================================
+  EXPLICACIÓN: Avion.java
+  Sky Defense — Nave del jugador
+=============================================================
+
+Representa la posición y estado de la nave del jugador.
+Extiende ObjetoVolador, heredando posicionX, posicionY
+(que aquí representa la altitud) y velocidad.
+
+  Constantes:
+    ALTITUD_MIN = 1000.0   ← piso lógico (no puede bajar más)
+    ALTITUD_MAX = 5000.0   ← techo lógico
+    ENERGIA_MAX = 100
+    DELTA_MOVIMIENTO = 10.0   ← unidades lógicas por movimiento
+
+  Campo propio (además de los heredados):
+    energia    → "vida" de la nave (0–100). posicionX y
+                 posicionY (altitud) son heredados de ObjetoVolador.
+
+  Constructor:
+    → Llama a super(posicionX, altitud, DELTA_MOVIMIENTO) para
+      inicializar los campos heredados.
+    → Valida que la altitud inicial esté en rango y lanza
+      IllegalArgumentException si no lo está ("programación
+      defensiva": fallar rápido con mensaje claro).
+
+  @Override mover():
+    → El avión no tiene movimiento autónomo. El método se
+      sobreescribe vacío para cumplir el contrato de
+      ObjetoVolador (que declara mover() abstracto).
+
+  mover(Direccion dir):
+    → Usa el enum Direccion (IZQUIERDA / DERECHA).
+    → Incrementa/decrementa posicionX en velocidad unidades.
+    → No tiene límites propios; la PantallaJuego los impone
+      antes de llamarlo.
+
+  variarAltitud(double nueva):
+    → Valida el rango y lanza excepción si es inválido.
+    → Asigna a posicionY (el campo heredado de ObjetoVolador
+      que en el avión representa la altitud).
+      La PantallaJuego clampea antes de llamarlo para evitar
+      que se lance la excepción.
+
+  recibirDanio(int porcentaje):
+    → Resta energía, clampea a 0.
+
+  reiniciarEnergia():
+    → Vuelve energia a ENERGIA_MAX (100).
+    → La llama ControladorJuego cuando la energía llega a 0:
+      primero quita una vida, luego reinicia el escudo.
+
+  getAltitud():
+    → Devuelve posicionY. Es un alias legible para que el
+      código externo no tenga que saber que la altitud se
+      guarda en posicionY.
+
+  getPosicionX():
+    → Heredado de ObjetoVolador; no se sobreescribe.
+
+  Métodos static getters (getAltitudMin, getAltitudMax):
+    → Son static porque devuelven constantes de la clase.
+      Cualquiera puede consultarlos sin instancia de Avion.
+
+
+=============================================================
+  EXPLICACIÓN: Dron.java
+  Sky Defense — Nave enemiga básica
+=============================================================
+
+Extiende ObjetoVolador. Representa un drone enemigo que cruza
+la pantalla horizontalmente y dispara misiles.
+
+  Constantes:
+    IZQUIERDA_A_DERECHA = 1    ← multiplicador de dirección
+    DERECHA_A_IZQUIERDA = -1
+    PANTALLA_MIN = 0.0
+    PANTALLA_MAX = 1000.0
+    ALTITUD_DRON = 6000.0      ← altitud máxima de vuelo
+    ALTITUD_MIN_VUELO = 4800.0 ← mínimo de la oscilación
+
+  Campos nuevos respecto a ObjetoVolador:
+    velocidadVertical → cuántas unidades sube/baja por tick
+    destruido         → true si fue eliminado por bala del jugador
+                        (false si simplemente cruzó la pantalla)
+
+  Constructor:
+    → posicionY arranca en ALTITUD_DRON (6000).
+    → velocidadVertical se inicializa con un valor aleatorio
+      negativo (bajando), entre -15 y -34. Esto hace que
+      cada drone oscile a un ritmo diferente.
+
+  mover():
+    → Mueve horizontalmente: posicionX += velocidad * direccion
+    → Al llegar al borde, activo = false (el drone salió de pantalla).
+    → Oscilación vertical:
+        posicionY += velocidadVertical
+        Si llega a ALTITUD_DRON → invierte velocidad (sube)
+        Si llega a ALTITUD_MIN_VUELO → invierte velocidad (baja)
+      Esto hace que el drone "rebote" entre dos altitudes,
+      moviéndose en una trayectoria ondulante.
+
+  lanzarMisil(double velocidadMisil):
+    → Crea un Misil en la posición ACTUAL del drone (posicionX,
+      posicionY), no en una altitud fija. Así el misil sale
+      desde donde visualmente está el drone.
+    → La altitud de detonación es aleatoria entre 1200 y 4500,
+      siempre menor que la altitud de lanzamiento (≥4800).
+
+  destruir():
+    → Marca activo=false Y destruido=true.
+    → La distinción es importante: un drone puede volverse
+      inactivo por dos razones diferentes:
+        1. Cruzó la pantalla → destruido=false (escapó)
+        2. Lo mató el jugador → destruido=true (eliminado)
+      PantallaJuego usa isDestruido() para saber cuándo
+      mostrar la explosión verde y los puntos flotantes.
+
+
+=============================================================
+  EXPLICACIÓN: Misil.java
+  Sky Defense — Proyectil enemigo
+=============================================================
+
+Extiende ObjetoVolador. Cae desde la altitud del drone
+hasta su altitud de detonación.
+
+  Constantes:
+    ALTITUD_DETONACION_MIN = 1200
+    ALTITUD_DETONACION_MAX = 4500
+
+  mover():
+    → posicionY -= velocidad  (decrece = baja en el espacio lógico)
+    → Cuando posicionY <= altitudDetonacion, explota:
+        posicionY = altitudDetonacion  (se "clava" ahí)
+        explotado = true
+
+  calcularDistanciaA(Avion avion):
+    → Fórmula de distancia euclídea (Pitágoras):
+        d = sqrt(dx² + dy²)
+    → IMPORTANTE: esta distancia está en unidades de juego
+      mixtas (eje X: 0-1000, eje Y: altitud 1000-6000).
+      Las unidades no son iguales en pantalla, por eso
+      el ControladorJuego convierte a píxeles antes de
+      aplicar los umbrales de daño.
+
+
+=============================================================
+  EXPLICACIÓN: BalaJugador.java
+  Sky Defense — Proyectil del jugador
+=============================================================
+
+Extiende ObjetoVolador. Es la bala que dispara el jugador
+con la tecla ESPACIO.
+
+  Constantes:
+    VELOCIDAD_BALA = 160.0   ← sube 160 unidades por tick (rápido)
+    ALTITUD_SALIDA = ALTITUD_DRON + 500  ← desaparece al pasar
+                                            a los drones
+
+  mover():
+    → posicionY += velocidad  (SUMA = sube, opuesto al Misil)
+    → Cuando supera ALTITUD_SALIDA, activa = false.
+
+  Diferencia clave con Misil:
+    Misil:       posicionY -= velocidad  (cae)
+    BalaJugador: posicionY += velocidad  (sube)
+  En el espacio lógico, mayor Y = mayor altitud = más arriba.
+
+
+=============================================================
+  EXPLICACIÓN: NaveBoss.java
+  Sky Defense — Nave jefe
+=============================================================
+
+Aparece en la oleada 5 de cada nivel boss (cada 10 niveles).
+No extiende ObjetoVolador porque no necesita la lógica de
+posición heredada; tiene su propio sistema de movimiento.
+
+  Constantes:
+    ALTITUD = 5600.0         ← altitud fija (cerca de los drones)
+    FRECUENCIA_DISP = 70     ← ticks entre salvas de misiles
+    MISILES_POR_SALVA = 7    ← misiles por salva
+
+  Constantes:
+    ALTITUD = 5600.0          ← altitud fija
+    FRECUENCIA_DISP = 70      ← ticks entre salvas
+    MISILES_POR_SALVA = 7     ← misiles por salva
+    GRACE_TICKS = 90          ← ticks de invulnerabilidad al aparecer
+
+  Campos:
+    vida / vidaMax   → HP actuales y máximos
+    ticksDisparo     → contador interno para la frecuencia de tiro
+    ticksActiva      → cuenta ticks desde que se creó el boss
+    posX             → posición horizontal actual (oscila)
+    velX = 0.45      → velocidad de movimiento horizontal
+    activa           → false cuando vida llega a 0
+
+  Constructor recibe la vida inicial. La fórmula en
+  ControladorJuego es:
+      250 + (nivel / 10 - 1) * 60
+    → Nivel 10: 250 HP, Nivel 20: 310 HP, Nivel 30: 370 HP
+
+  tick(double velMisil, Random rand):
+    → Se llama en cada tick del juego (solo si activa).
+    → Incrementa ticksActiva cada tick.
+
+    Movimiento oscilante:
+        posX += velX
+        Si posX > 780 → invierte velX (va hacia izquierda)
+        Si posX < 220 → invierte velX (va hacia derecha)
+      La nave se mueve entre x=220 y x=780, de lado a lado.
+      El jugador tiene que seguirla para pegarle.
+
+    Disparo:
+        ticksDisparo++
+        Cuando llega a FRECUENCIA_DISP (70 ticks):
+          Crea 7 misiles distribuidos alrededor de posX:
+            offset = (i - 3) * 120   para i = 0..6
+            x = posX + offset + ruido_aleatorio
+          Los misiles se centran en la posición actual del boss,
+          creando una "cortina" de fuego que sigue al boss.
+
+  estaVulnerable():
+    → Devuelve true cuando ticksActiva > GRACE_TICKS (90).
+    → Durante los primeros 90 ticks el boss no recibe daño.
+      Esto da tiempo a que la animación de entrada termine y
+      el jugador sepa que acaba de aparecer antes de poder
+      hacerle daño. ControladorJuego verifica estaVulnerable()
+      antes de procesar cualquier colisión bala–boss.
+
+  recibirDanio(int danio):
+    → Resta 10 de HP por impacto de bala del jugador.
+    → Cuando vida == 0 → activa = false.
+
+  Por qué no hereda ObjetoVolador:
+    → ObjetoVolador tiene posicionX y posicionY heredados,
+      más el método abstract mover(). El boss tiene altitud
+      FIJA (5600) y se mueve solo en X. Crear una subclase
+      de ObjetoVolador implicaría ignorar posicionY y
+      implementar mover() de forma artificial. Mejor
+      independencia de diseño.
+
+
+=============================================================
+  EXPLICACIÓN: Escuadron.java
+  Sky Defense — Gestión del grupo de drones
+=============================================================
+
+Controla cuántos drones se generaron y cuántos quedan activos
+en el escuadrón actual.
+
+  Constantes:
+    TOTAL_DRONES_DEFAULT = 10  ← drones por oleada normal
+    MAX_DRONES_ACTIVOS = 4     ← máximo simultáneo en pantalla
+
+  puedeGenerarMasDrones(int activos):
+    → true si: quedan drones por generar Y hay lugar (< 4 activos)
+    → Es la compuerta de spawn: controla que no haya demasiados
+      drones en pantalla a la vez.
+
+  escuadronTerminado():
+    → true si: se generaron todos Y ninguno sigue activo.
+    → Recorre la lista interna "drones" (todos los generados,
+      incluyendo los que ya salieron de pantalla) y cuenta
+      los que aún tienen activo=true.
+    → Con Escuadron(0) (para la oleada del boss), devuelve
+      true inmediatamente ya que 0 >= 0 y activos = 0.
+
+  registrarGeneracionDron(Dron dron):
+    → Agrega el drone a la lista interna del escuadrón
+      (para el conteo de escuadronTerminado) y suma
+      dronesGenerados.
+    → Separar "registrar en escuadron" de "agregar a activosDrones"
+      permite que el Escuadron lleve su propio conteo sin
+      necesitar acceso a la lista del controlador.
+
+
+=============================================================
+  EXPLICACIÓN: Jugador.java
+  Sky Defense — Estado del jugador
+=============================================================
+
+Clase simple que almacena el puntaje y las vidas.
+
+  sumarPuntos(int puntos)
+    → Acumula puntos. Se llama con distintas cantidades según
+      la situación (40 pts por misil lejano, 100 por drone
+      destruido, 300 al completar nivel, etc.).
+
+  perderVida()
+    → Decrementa vidas, mínimo 0. El guard "if vidas > 0"
+      evita vidas negativas.
+
+  aumentarVidaExtra()
+    → Se llama cuando el puntaje supera múltiplos de 1000.
+    → Tiene un cap: if (vidas < 5) vidas++
+      Así no se acumulan más de 5 vidas sin importar el puntaje.
+
+
+=============================================================
+  EXPLICACIÓN: Nivel.java
+  Sky Defense — Dificultad progresiva
+=============================================================
+
+Encapsula toda la lógica de escalado de dificultad.
+Se reinicia a Nivel(1) al empezar o reiniciar el juego.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Velocidades base y multiplicador
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  VELOCIDAD_BASE_DRON  = 5.0
+  VELOCIDAD_BASE_MISIL = 50.0
+  INCREMENTO_POR_NIVEL = 0.04
+
+  calcularMultiplicador():
+      return Math.pow(1 + 0.04, numero - 1)
+      → Es crecimiento exponencial: cada nivel multiplica por 1.04
+      → Nivel 1:  1.0x
+      → Nivel 10: 1.04^9  ≈ 1.42x
+      → Nivel 20: 1.04^19 ≈ 2.11x
+      → Nivel 30: 1.04^29 ≈ 3.12x
+      Se eligió 0.04 en lugar de valores más altos (se probó 0.15
+      pero hacía el juego imposible desde el nivel 10).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Escalado de cantidad de drones
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  getTotalDronesNivel():
+      return 10 + 4 * ((numero - 1) / 5)
+      → División entera: (1-1)/5=0, (6-1)/5=1, (11-1)/5=2 ...
+      → Nivel 1–5:   10 drones
+      → Nivel 6–10:  14 drones
+      → Nivel 11–15: 18 drones
+      → Nivel 16–20: 22 drones  (en niveles boss se ignora)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Niveles boss
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  esBossLevel():
+      return numero >= 10 && numero % 10 == 0
+      → true en niveles 10, 20, 30, 40 ...
+      → "%" es el operador módulo (resto de la división).
+        20 % 10 = 0 → es boss. 21 % 10 = 1 → no es boss.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Escalado de daño (nivel 16+)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  getMultiplicadorDanio():  nivel >= 16 → 1.50x, sino 1.0x
+  getMultiplicadorRadio():  nivel >= 16 → 1.25x, sino 1.0x
+
+  → A partir del nivel 16 los misiles hacen 50% más de daño
+    y el radio de explosión efectivo crece un 25%.
+  → Los umbrales de daño en ControladorJuego se multiplican
+    por estos factores.
+
+
+=============================================================
+  EXPLICACIÓN: ControladorJuego.java
+  Sky Defense — Motor de juego (Game Logic)
+=============================================================
+
+Es la clase central del modelo. Contiene toda la lógica
+del juego sin ningún código de interfaz gráfica.
+Principio aplicado: separación entre lógica (modelo) y
+presentación (vista).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Enum Estado
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  public enum Estado { EN_CURSO, NIVEL_SUPERADO, GAME_OVER }
+
+  → El enum actúa como "máquina de estados". El juego solo
+    puede estar en uno de estos 3 estados. Esto evita usar
+    booleans mezclados ("¿está en game over? ¿nivel superado?")
+    que son difíciles de mantener.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Campos principales
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  activosDrones   → lista de drones actualmente en pantalla
+  activosMisiles  → lista de misiles en vuelo
+  balasJugador    → lista de balas del jugador en vuelo
+  naveBoss        → null si no hay boss, o la instancia del boss
+
+  oleadaActual / totalOleadas:
+    → En niveles normales: ambos son 1 (una sola oleada).
+    → En niveles boss: totalOleadas = 5, oleadaActual avanza
+      de 1 a 5 a medida que se completan oleadas.
+
+  entreOleadasTicks:
+    → Cuando una oleada termina, se setea en 240.
+    → Se decrementa en cada tick dentro de verificarGeneracionDron().
+    → Mientras es > 0, no se generan nuevos drones ni dispara
+      el boss. Da la pausa de ~2 segundos entre oleadas.
+
+  vidasIniciales:
+    → Se guarda en el constructor para que iniciarJuego() siempre
+      reinicie con las vidas correctas, no con las del momento
+      de game over (que serían 0).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  actualizarJuego() — el loop del juego
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Se llama una vez por tick (cada 8ms aprox). Si el estado
+  no es EN_CURSO, retorna inmediatamente.
+
+  Orden de ejecución dentro de un tick:
+    1. verificarGeneracionDron()   → ¿spawneamos un nuevo drone?
+    2. procesarDisparosDrones()    → drones disparan misiles
+    3. actualizarPosicionesObjetos() → mueven drones, misiles, balas
+    4. procesarBalasJugador()      → balas del jugador golpean drones o boss
+    5. tick del boss (si hay boss activo y entreOleadasTicks == 0)
+    6. verificarDetonacionesYImpacto() → misiles detonan, aplican daño
+    7. verificarEstadoJugador()    → ¿quedó sin vidas? → GAME_OVER
+    8. verificarFinDeNivel()       → ¿terminó la oleada/nivel?
+    9. limpiarElementosActivos()   → elimina drones muertos, misiles
+                                      explotados, balas usadas
+
+  El orden importa: los objetos se mueven ANTES de verificar
+  colisiones, así todo está en su nueva posición al momento
+  de calcular daños.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  verificarGeneracionDron()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  → Primero descuenta entreOleadasTicks (pausa entre oleadas).
+  → Consulta escuadron.puedeGenerarMasDrones() para saber si
+    hay lugar y drones pendientes.
+  → Verifica separación: el nuevo drone NO puede spawnear si
+    hay otro drone a menos de 160 unidades del punto de origen.
+    Esto evita que se solapen visualmente.
+  → Si todo OK, crea el drone y lo registra.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  verificarDetonacionesYImpacto() y calcularDanio()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  El cálculo de distancia se hace en PÍXELES DE PANTALLA
+  (no en unidades de juego):
+      screenDx = dx_juego * 900 / 1000      ← escala X
+      screenDy = dy_altitud * 545 / 5000    ← escala Y
+      distPx = sqrt(screenDx² + screenDy²)
+
+  Por qué es necesario: el eje X del juego va de 0 a 1000
+  (= 900px) y el eje de altitud va de 1000 a 6000 (= 545px).
+  Si se usa la distancia en unidades crudas, una diferencia
+  de 1000 en altitud (= solo 109px) parece igual a 1000 en X
+  (= 900px), distorsionando completamente el cálculo de daño.
+
+  Umbrales (en píxeles, escalados por multiplicador de nivel):
+    > 200px  → puntos sin daño (misil lejano)
+    110–200px → daño leve al avión (20% energía)
+    50–110px  → daño fuerte (40% energía)
+    < 50px    → pierde una vida directamente
+
+  evaluarConsecuenciasImpacto():
+    → Aplica el daño a la energía.
+    → Si energía llega a 0: pierde vida + reinicia energía.
+      Así la energía funciona como "escudo": primero se agota
+      la energía y luego se pierde la vida.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  procesarBalasJugador()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Decrementa cooldownBala (cada tick). No se puede disparar
+     si cooldownBala > 0. Esto limita la cadencia de disparo.
+     Con cooldown=12 ticks a ~120fps ≈ 0.1 segundos entre balas.
+
+  2. Colisión bala–drone:
+     → Para cada bala activa, recorre los drones activos.
+     → Calcula distancia euclídea entre bala y drone
+       (en unidades de juego; para colisión es aceptable porque
+       la bala y el drone están a la misma altitud aproximada).
+     → Si distancia < 55: drone.destruir(), bala.desactivar(),
+       +100 puntos.
+     → "break" sale del loop de drones después del primer impacto,
+       para que una bala no destruya múltiples drones a la vez.
+
+  3. Colisión bala–boss:
+     → Solo si naveBoss.estaVulnerable() (han pasado más de
+       90 ticks desde que apareció). Evita que se le haga
+       daño durante la animación de entrada.
+     → Condición de impacto: bala.posicionY >= ALTITUD_BOSS - 200
+       Y distancia horizontal dx = |bala.x - boss.posX| < 120.
+       A diferencia de antes, ahora SÍ se verifica la X para
+       que la hitbox sea más ajustada al sprite real.
+     → boss.recibirDanio(10), bala desactivada, +20 puntos.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  verificarFinDeNivel() — sistema de oleadas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Condición para avanzar:
+      escuadron.escuadronTerminado()
+      && activosMisiles todos explotados
+
+  Si hay más oleadas (oleadaActual < totalOleadas):
+    → Incrementa oleadaActual, limpia drones, setea la pausa.
+    → Si es la última oleada de un nivel boss:
+        Crea Escuadron(0) (sin drones normales)
+        Crea NaveBoss con vida = 250 + (nivel/10 - 1) * 60
+    → Si no es boss: Escuadron(10) normal.
+
+  Si es la última oleada:
+    → Verifica si naveBoss todavía está activo.
+      Si sí: return (no termina el nivel aún).
+      Si no: suma 300 pts y cambia estado a NIVEL_SUPERADO.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  setupEscuadron()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Se llama al inicio del juego y al avanzar de nivel.
+  Determina si el nivel actual es boss:
+    → Boss: totalOleadas=5, Escuadron(10) por oleada
+            (la última oleada será Escuadron(0) + boss)
+    → Normal: totalOleadas=1, Escuadron(getTotalDronesNivel())
+
+
+=============================================================
+  EXPLICACIÓN: PantallaJuego.java
+  Sky Defense — Pantalla principal del juego
+=============================================================
+
+Es la clase más grande del proyecto. Combina:
+  - El bucle del juego (game loop con Timer de Swing)
+  - El sistema de renderizado (paintComponent)
+  - La gestión de input (teclado)
+  - Todos los efectos visuales
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Coordenadas: espacio lógico vs pantalla
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  El juego usa coordenadas lógicas:
+    Eje X: 0 a 1000 (ancho lógico)
+    Eje Y: altitud de 1000 (suelo) a 6000 (techo)
+
+  Para dibujar hay que convertirlas a píxeles de pantalla:
+    (pantalla: 900 × 650 px, HUD ocupa 65px arriba)
+
+  gameXToScreen(double x):
+      return x * 900 / 1000   → escala simple
+
+  altToScreen(double alt):
+      → Mayor altitud = más arriba en pantalla (menor Y en px)
+      → Fórmula: 635 - (alt - 1000) / 5000 * 560
+      → Altitud 6000 → y=75px   (tope del área de juego)
+      → Altitud 1000 → y=635px  (fondo del área de juego)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Sistema de galaxias
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Hay 5 galaxias, cada una con:
+    GALAXIA_FONDO[][]          → colores del gradiente de fondo
+    GALAXIA_PLANETAS[][][]     → paleta de colores de planetas
+    GALAXIA_NEBULOSAS[][][]    → paleta de colores de nebulosas
+    GALAXIA_COLOR_TITULO[][]   → color del texto de transición
+    GALAXIA_NOMBRES[]          → "GALAXIA ALFA", "BETA", etc.
+
+  getGalaxia():
+      return (nivel - 1) / 10   capped en 4
+      → Nivel 1–10: galaxia 0 (azul)
+      → Nivel 11–20: galaxia 1 (púrpura)
+      → Nivel 21–30: galaxia 2 (rojo)
+      → Nivel 31–40: galaxia 3 (cian)
+      → Nivel 41+:   galaxia 4 (dorado)
+
+  Cuando getGalaxia() cambia (al avanzar de nivel boss):
+    → galaxiaActual se actualiza
+    → galaxiaTransicionTicks = 220
+    → regenerarObjEspaciales(): recalcula colores de planetas
+      y nebulosas con la nueva paleta, regenera los BufferedImage.
+    → pintarMensajeGalaxia() muestra el nombre con fade-in/out.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Estrellas con parallax (3 capas)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  float[][] capa0  → 100 estrellas lentas  (vel 0.25-0.40 px/tick)
+  float[][] capa1  → 60  estrellas medias  (vel 0.65-1.00 px/tick)
+  float[][] capa2  → 30  estrellas rápidas (vel 1.70-2.60 px/tick)
+
+  Cada entrada del array es float[5]:
+    [0] x, [1] y, [2] velocidad, [3] brillo, [4] tamaño
+
+  scrollEstrellas():
+    → Cada tick: s[1] += s[2]  (baja por la pantalla)
+    → Si sale por abajo (y > ALTO): vuelve al tope con x aleatorio.
+    → Las capas más rápidas dan la ilusión de que están más cerca.
+      Esto es el efecto de PARALLAX: objetos lejanos parecen moverse
+      más lento que los cercanos cuando te movés. Da sensación de
+      profundidad espacial.
+
+  Las estrellas de capa2 tienen un halo semitransparente extra
+  (fillOval con alpha 12%) que las hace parecer más brillantes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Planetas y nebulosas (objetos espaciales de fondo)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  float[][] objEspaciales  → 6 objetos: 4 planetas + 2 nebulosas
+  BufferedImage[] imgObjEsp → imagen pre-renderizada de cada uno
+
+  Cada objeto tiene: [x, y, velocidad, radio, r, g, b, alpha, tipo]
+    tipo 0 = planeta  (radio 22-54px, alpha 75-130)
+    tipo 1 = nebulosa (radio 55-120px, alpha 20-45)
+
+  Por qué BufferedImage pre-renderizada:
+    → Dibujar RadialGradientPaint cada frame es costoso.
+    → Se renderiza una sola vez al crear el objeto (o al cambiar
+      de galaxia) y luego se hace drawImage() en cada frame,
+      que es una operación rápida (blit de pixels).
+
+  renderObjEspacial(float[] o):
+    → Crea una BufferedImage del tamaño exacto del objeto.
+    → Para planetas: usa RadialGradientPaint con 3 colores
+      (centro brillante → color base → transparente en el borde).
+      El centro del gradiente está desplazado (cx-r/4, cy-r/4)
+      para simular iluminación lateral.
+    → Para nebulosas: 4 anillos concéntricos con opacidades
+      crecientes hacia el interior (simula una nube de gas).
+
+  scrollObjEspaciales():
+    → Similar a las estrellas pero más lento (vel 0.05-0.23).
+    → Cuando sale por abajo, resetea al tope y REGENERA su
+      imagen con colores nuevos de la galaxia actual.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Overlays CRT (scanlines y viñeta)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Ambos están pre-renderizados como BufferedImage (imgScanlines
+  e imgViñeta) creados una sola vez en initOverlays().
+
+  Scanlines:
+    → BufferedImage de 900×650 con líneas negras cada 3px,
+      alpha=15 (≈6%). Se hace drawImage() una vez por frame.
+    → Motivo de pre-render: antes se hacía fillRect() 217 veces
+      por frame con AlphaComposite, lo cual forzaba software
+      rendering y bajaba mucho los FPS.
+
+  Viñeta:
+    → RadialGradientPaint que oscurece los bordes.
+    → Transparente en el centro, negro-alpha-180 en los bordes.
+    → Se renderiza una sola vez porque el gradiente es estático.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Game loop y control de teclas
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Timer timerJuego = new Timer(8, e -> tick())
+    → Llama a tick() cada 8ms ≈ 120 FPS.
+
+  Manejo de teclas con InputMap/ActionMap (preferido a KeyListener):
+    → KeyListener tiene un defecto: si la ventana pierde el foco
+      momentáneamente, deja de recibir eventos y las teclas
+      quedan "pegadas".
+    → InputMap/ActionMap con WHEN_IN_FOCUSED_WINDOW funciona mejor
+      para juegos porque captura las teclas de forma más robusta.
+
+  Teclas soportadas:
+    ← → (y A D):    movimiento horizontal del avión
+    ↑ ↓ (y W S):    cambio de altitud
+    ESPACIO:        disparar bala
+    ESC:            pausar/reanudar juego
+    M:              ir al menú (solo cuando pausado)
+    ENTER:          saltar countdown de nivel superado/game over,
+                    o saltar la intro del boss
+
+  Separación pressed/released:
+    → Se registran dos bindings para cada tecla: onRelease=false
+      (cuando se presiona) y onRelease=true (cuando se suelta).
+    → Esto permite detectar "tecla mantenida": cuando se presiona,
+      keyLeft=true; cuando se suelta, keyLeft=false.
+    → En tick() se mueve el avión SOLO si la tecla sigue presionada.
+      Esto da movimiento fluido en lugar de un salto por pulsación.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  tick() — el corazón del game loop visual
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Cada tick (8ms) hace en orden:
+
+  1. Si pausado → repaint y return (congela todo).
+
+  2. Animación de fondo: scrollEstrellas, scrollObjEspaciales.
+
+  3. Si boss intro activo → tickBossIntro (mueve la nave
+     gigante de fondo, cuenta down para empezar la batalla).
+
+  4. Si el juego está EN_CURSO:
+       a. moverJugador() con las teclas mantenidas
+       b. Toma snapshot de drones activos ANTES del update
+       c. Si ESPACIO presionado → ctrl.dispararBala()
+       d. detectarYActualizarExplosiones() que incluye ctrl.actualizarJuego()
+       e. Detecta drones destruidos comparando snapshot con estado post-update
+          → para cada drone que era activo y ahora tiene isDestruido()=true:
+            agrega explosionesDron[] y puntosFlotantes[]
+       f. Detecta daño recibido comparando vidas/energía previas con actuales
+          → si bajaron: flashDanio = 8 (activa el flash rojo)
+
+  5. Aging de efectos:
+       explosionesDron.removeIf(e -> --e[2] <= 0)   cuenta regresiva
+       puntosFlotantes.removeIf(p -> --p[2] <= 0)
+       if (flashDanio > 0) flashDanio--
+
+  6. Auto-avance del overlay:
+       Si NIVEL_SUPERADO o GAME_OVER: overlayTicks++
+       Cuando llega a 300 ticks (≈2.4 segundos):
+         → avanza al siguiente nivel o reinicia el juego
+         → ENTER salta el countdown poniendo overlayTicks=300
+
+  7. Detección de cambio de galaxia (getGalaxia() vs galaxiaActual)
+  8. repaint()
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  detectarYActualizarExplosiones()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  1. Toma snapshot de misiles ANTES del update:
+       new ArrayList<>(ctrl.getActivosMisiles())
+     → ArrayList<>(coleccion) es el constructor copia: crea
+       una nueva lista con los mismos elementos. La lista
+       original puede modificarse, el snapshot no.
+
+  2. Llama ctrl.actualizarJuego() que mueve todo y limpia
+     los misiles explotados de activosMisiles.
+
+  3. Recorre el snapshot: los misiles que ahora tienen
+     haExplotado()=true son los que detonaron en este tick.
+     → Para cada uno: agrega explosiones[] con su posición
+       en pantalla y duración 18 ticks.
+
+  Por qué snapshot: después de actualizarJuego() los misiles
+  explotados ya fueron eliminados de la lista. Sin snapshot
+  no sabríamos dónde estaban.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Efectos visuales
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Explosión de misil (explosiones[]):
+    → [screenX, screenY, ticksRestantes] (empieza en 18, baja a 0)
+    → Progress = (18 - ticks) / 18   (0 = recién, 1 = terminando)
+    → Radio = progress * 75 px
+    → Alpha = (1 - progress) * 0.85  (desaparece al expandirse)
+    → Dibuja: anillo circular con drawOval + flash blanco inicial
+
+  Explosión de drone destruido (explosionesDron[]):
+    → Animación más larga (45 ticks) y más grande (hasta 104px).
+    → Usa RadialGradientPaint: blanco en el centro → verde
+      → transparente en el borde. Más impactante visualmente.
+    → Además dibuja un anillo verde expandiéndose.
+
+  Puntos flotantes (puntosFlotantes[]):
+    → [screenX, screenY, frame, puntos]
+    → Duración 55 ticks. El texto "+100" sube y se desvanece:
+        drawY = sy - (int)(40 * progress)   ← sube con el tiempo
+        alpha: 1.0 hasta el 70% → fade out en el último 30%
+    → Feedback visual que refuerza la acción del jugador.
+
+  Flash de daño (flashDanio):
+    → Un entero que empieza en 8 y baja a 0 (8 ticks ≈ 65ms).
+    → En pintarFlashDanio(): rellena toda el área de juego con
+      rojo semitransparente. La opacidad es flashDanio/8 * 0.38.
+    → Feedback inmediato de "te pegaron".
+
+  Explosión boss (bossExplosionTicks):
+    → 90 ticks (≈0.75 segundos).
+    → 5 anillos desfasados que se expanden desde el centro de
+      la pantalla hasta 480px de radio, cada uno con un color
+      y timing ligeramente diferente.
+    → Flash inicial que cubre toda la pantalla (prog < 0.18).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  HUD (Heads-Up Display)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Ocupa los primeros 65px verticales (ALTO_HUD = 65).
+
+  Secciones de izquierda a derecha:
+    NIVEL (grande, nro en bold 20pt)
+    ENERGÍA (barra de 140px + porcentaje + contador de drones)
+    PUNTAJE (centrado, formato %06d = 6 dígitos con ceros)
+    VIDAS (corazones ♥ en rojo, hasta 5)
+    Indicador de altitud (barra vertical al extremo derecho)
+
+  Barra de energía:
+    → Color: verde (>50%), amarillo (25-50%), rojo (<25%).
+    → barColor.darker(): oscurece el color para el borde,
+      usando el método de Color que reduce el brillo en 30%.
+    → fillRoundRect con radio 4: esquinas redondeadas.
+
+  Indicador de altitud (barra lateral):
+    → Barra vertical de 8px de ancho en el borde derecho.
+    → La posición del marcador horizontal se calcula como:
+        ratio = (altActual - altMin) / (altMax - altMin)
+        markerY = barBottom - ratio * barHeight
+      Más arriba = más alta la altitud.
+    → Etiquetas "5K" y "1K" en los extremos.
+
+  Corazones de vida:
+    → Se construye un String con ♥ repetidos:
+        for (int i = 0; i < vidas; i++) sb.append("♥ ")
+    → Se dibuja como texto normal (Font "Monospaced", bold, 22pt).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Pantalla de pausa
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Al presionar ESC: pausado = !pausado (toggle).
+  En tick(): si pausado → repaint() y return inmediato.
+  En paintComponent(): if (pausado) pintarPausa(g2).
+
+  pintarPausa():
+    → Overlay semitransparente (alpha 0.68) sobre el área de juego.
+    → Texto "PAUSA" centrado con glow verde.
+    → Opciones: "ESC - CONTINUAR" y "M - MENÚ PRINCIPAL".
+    → La M solo funciona si pausado=true (validado en el binding).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Boss intro (animación de entrada al nivel boss)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Al avanzar al nivel boss (tras presionar ENTER o auto-avance):
+    bossIntroActivo = true
+    bossIntroTicks = 480    (≈4 segundos)
+    naveGiganteX = -600     (empieza fuera de pantalla a la izq.)
+
+  Durante la intro:
+    → La lógica del juego NO corre (tick saltea la parte de juego).
+    → tickBossIntro(): naveGiganteX += 1.8 (la nave cruza)
+    → pintarBossIntroOverlay(): texto parpadeante "SE ACERCA LA
+      TROPA ENEMIGA", overlay oscuro, hint para saltear con ENTER.
+
+  La nave gigante de intro (imgNaveGigante, 520×150px):
+    → Se pre-renderiza una sola vez en renderNaveGigante().
+    → Se dibuja con alpha 0.80 durante la intro (prominente).
+    → Durante la batalla boss real, si ctrl.esNivelBoss(),
+      se sigue dibujando con alpha 0.13 (muy tenue, decorativa).
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Nave boss en batalla (NaveBoss visual)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  imgNaveBoss (460×145px): se renderiza una sola vez al inicio.
+  Se dibuja centrada en gameXToScreen(boss.getPosX()) en cada frame.
+  Como el boss se mueve (posX oscila), la imagen se desplaza
+  horizontalmente en pantalla siguiendo su posición lógica.
+
+  pintarBarraVidaBoss():
+    → Barra horizontal ANCHO px en la parte superior del área
+      de juego (justo debajo del HUD), mostrando HP actual.
+    → Color: rojo (>50%), naranja (25-50%), amarillo (<25%).
+    → Texto "NAVE BOSS HP: X/Y" superpuesto en la barra.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Orden completo de capas en paintComponent()
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Capa 1:  pintarFondo           degradado de fondo (color de galaxia)
+  Capa 2:  pintarObjEspaciales   planetas y nebulosas lentas
+  Capa 3:  pintarNaveGigante     nave gigante de intro (si boss)
+  Capa 4:  pintarEstrellas       3 capas de parallax
+  Capa 5:  pintarCarrileroDrones franja tenue donde vuelan los drones
+  Capa 6:  pintarDrones          sprites de drones (escalados 0.72x)
+  Capa 7:  pintarNaveBoss        nave boss (si oleada 5 de boss activa)
+  Capa 8:  pintarMisiles         misiles enemigos en vuelo
+  Capa 9:  pintarBalas           balas del jugador (líneas verdes)
+  Capa 10: pintarExplosiones     explosiones de detonación de misiles
+  Capa 11: pintarExplosionesDestrDron  explosiones verdes de drones
+  Capa 12: pintarPuntosFlotantes texto "+100" flotante
+  Capa 13: pintarAvion           nave del jugador (escalada 0.6x)
+  Capa 14: pintarHUD             barra de UI
+  Capa 15: pintarScanlines       (imagen pre-renderizada)
+  Capa 16: pintarViñeta          (imagen pre-renderizada)
+  Capa 17: pintarExplosionBoss   si bossExplosionTicks > 0
+  Capa 18: pintarBarraVidaBoss   si boss activo
+  Capa 19: pintarFlashDanio      rojo semi-opaco si flashDanio > 0
+  Capa 20: pintarMensajeGalaxia  transición al cambiar de galaxia
+  Capa 21: pintarBossIntroOverlay si bossIntroActivo
+  Capa 22: pintarMensajeOleada   entre oleadas del boss
+  Capa 23: pintarOverlay         NIVEL SUPERADO o GAME OVER
+  Capa 24: pintarPausa           si pausado=true
+
+  El orden es crítico: elementos más importantes van arriba
+  para que no queden tapados por los del fondo.
+
+=============================================================
+  RESUMEN DE ARQUITECTURA GENERAL
+=============================================================
+
+  PATRÓN MVC (Model-View-Controller) aplicado:
+
+  MODELO (paquete skydefense):
+    ObjetoVolador, Avion, Dron, Misil, BalaJugador, NaveBoss
+    Escuadron, Jugador, Nivel, ControladorJuego
+    → Lógica pura del juego, sin código de UI.
+    → Pueden testearse con JUnit sin necesitar Swing.
+
+  VISTA (paquete interfas):
+    PantallaInicio, PantallaPersonalizacion, PantallaJuego,
+    ConfiguracionSkins
+    → Solo código de renderizado y eventos de usuario.
+    → No toman decisiones de juego; consultan al modelo.
+
+  El ControladorJuego actúa como Controller: recibe órdenes
+  de la vista (dispararBala, mover) y actualiza el modelo,
+  que la vista luego lee para dibujar.
+
+=============================================================
