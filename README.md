@@ -2,6 +2,12 @@
 
 > A Java-based tower defense game developed as a collaborative university project focused on Object-Oriented Programming and software design.
 
+<p align="center">
+  <img src="docs/preview.png" alt="SkyDefence start screen, a gameplay mockup made from the game's sprites and the three ship skins" width="100%">
+  <br>
+  <sub><i>Start screen, a gameplay mockup built from the game's own sprites, and the selectable ships.</i></sub>
+</p>
+
 ## 📖 About
 
 **SkyDefence** is a tower defense game developed as part of a university course project.
